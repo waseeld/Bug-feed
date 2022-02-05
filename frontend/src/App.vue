@@ -117,7 +117,8 @@
                 aria-labelledby="welcome_tab"
               >
                 <div class="container mt-5">
-                  {% include "fragments/welcome.html" %}
+                  <!-- {% include "fragments/welcome.html" %} -->
+                  <Welcome />
                 </div>
               </div>
               <div
@@ -747,12 +748,12 @@
 </template>
 
 <script>
-// import HelloWorld from './components/HelloWorld.vue'
+import Welcome from './components/fragments/welcome.vue'
 
 export default {
   name: "App",
   components: {
-    // HelloWorld
+    Welcome
   },
 };
 </script>
