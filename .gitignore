@@ -1,2 +1,18 @@
-/data
-/node_modules
+# Dependencies
+node_modules/
+
+# Production build artifacts
+dist/
+frontend/dist/
+
+# Environment and sensitive keys
+.env
+.DS_Store
+
+# Temporary files
+*.tmp
+backend/data/*.tmp
+
+# Runtime database and authentication data (kept local only)
+backend/data/*.json
+!backend/data/.gitkeep
