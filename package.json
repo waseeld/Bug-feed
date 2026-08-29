@@ -1,14 +1,28 @@
 {
   "name": "bug-feed",
   "version": "1.0.0",
-  "description": "",
+  "description": "Cyber Threat Intelligence & Bug Bounty Radar Platform",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main.js",
+    "worker": "node backend/worker.js",
+    "build:frontend": "npm --prefix frontend run build",
+    "test": "node test/run-all.js",
+    "test:storage": "node test/storage.test.js",
+    "test:feeds": "node test/feeds.test.js",
+    "test:api": "node test/api.test.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "bug-bounty",
+    "cve",
+    "exploit-poc",
+    "threat-intelligence",
+    "infosec",
+    "hackerone",
+    "security-research"
+  ],
+  "author": "waseeld",
+  "license": "MIT",
   "dependencies": {
     "compression": "^1.7.4",
     "express": "^4.17.2",
