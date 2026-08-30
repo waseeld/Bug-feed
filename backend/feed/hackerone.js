@@ -1,56 +1,170 @@
-const request = require('request-promise');
+/**
+ * HackerOne feed ingestion.
+ * Fetches disclosed bug reports from reddelexc/hackerone-reports data repository
+ * with fallback to HackerOne's GraphQL hacktivity endpoint.
+ */
 
-async function HackerOne(num_reports = 25) {
-    var o = {
-        method: 'POST',
-        url: "https://hackerone.com/graphql",
-        headers: {
-            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0",
-            "Accept": "*/*",
-            "Accept-Language": "en-US,en;q=0.5",
-            "content-type": "application/json",
-            "x-auth-token": "----",
-            "Pragma": "no-cache",
-            "Cache-Control": "no-cache"
-        },
-        body: { "operationName": "HacktivityPageQuery", "variables": { "querystring": "", "where": { "report": { "disclosed_at": { "_is_null": false } } }, "orderBy": { "field": "popular", "direction": "DESC" }, "secureOrderBy": null, "count": num_reports, "maxShownVoters": 0 }, "query": "query HacktivityPageQuery($querystring: String, $orderBy: HacktivityItemOrderInput, $secureOrderBy: FiltersHacktivityItemFilterOrder, $where: FiltersHacktivityItemFilterInput, $count: Int, $cursor: String, $maxShownVoters: Int) {\n  me {\n    id\n    __typename\n  }\n  hacktivity_items(first: $count, after: $cursor, query: $querystring, order_by: $orderBy, secure_order_by: $secureOrderBy, where: $where) {\n    total_count\n    ...HacktivityList\n    __typename\n  }\n}\n\nfragment HacktivityList on HacktivityItemConnection {\n  total_count\n  pageInfo {\n    endCursor\n    hasNextPage\n    __typename\n  }\n  edges {\n    node {\n      ... on HacktivityItemInterface {\n        id\n        databaseId: _id\n        ...HacktivityItem\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment HacktivityItem on HacktivityItemUnion {\n  type: __typename\n  ... on HacktivityItemInterface {\n    id\n    votes {\n      total_count\n      __typename\n    }\n    voters: votes(last: $maxShownVoters) {\n      edges {\n        node {\n          id\n          user {\n            id\n            username\n            __typename\n          }\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    upvoted: upvoted_by_current_user\n    __typename\n  }\n  ... on Undisclosed {\n    id\n    ...HacktivityItemUndisclosed\n    __typename\n  }\n  ... on Disclosed {\n    id\n    ...HacktivityItemDisclosed\n    __typename\n  }\n  ... on HackerPublished {\n    id\n    ...HacktivityItemHackerPublished\n    __typename\n  }\n}\n\nfragment HacktivityItemUndisclosed on Undisclosed {\n  id\n  reporter {\n    id\n    username\n    ...UserLinkWithMiniProfile\n    __typename\n  }\n  team {\n    handle\n    name\n    medium_profile_picture: profile_picture(size: medium)\n    url\n    id\n    ...TeamLinkWithMiniProfile\n    __typename\n  }\n  latest_disclosable_action\n  latest_disclosable_activity_at\n  requires_view_privilege\n  total_awarded_amount\n  currency\n  __typename\n}\n\nfragment TeamLinkWithMiniProfile on Team {\n  id\n  handle\n  name\n  __typename\n}\n\nfragment UserLinkWithMiniProfile on User {\n  id\n  username\n  __typename\n}\n\nfragment HacktivityItemDisclosed on Disclosed {\n  id\n  reporter {\n    id\n    username\n    ...UserLinkWithMiniProfile\n    __typename\n  }\n  team {\n    handle\n    name\n    medium_profile_picture: profile_picture(size: medium)\n    url\n    id\n    ...TeamLinkWithMiniProfile\n    __typename\n  }\n  report {\n    id\n    databaseId: _id\n    title\n    substate\n    url\n    __typename\n  }\n  latest_disclosable_action\n  latest_disclosable_activity_at\n  total_awarded_amount\n  severity_rating\n  currency\n  __typename\n}\n\nfragment HacktivityItemHackerPublished on HackerPublished {\n  id\n  reporter {\n    id\n    username\n    ...UserLinkWithMiniProfile\n    __typename\n  }\n  team {\n    id\n    handle\n    name\n    medium_profile_picture: profile_picture(size: medium)\n    url\n    ...TeamLinkWithMiniProfile\n    __typename\n  }\n  report {\n    id\n    url\n    title\n    substate\n    __typename\n  }\n  latest_disclosable_activity_at\n  severity_rating\n  __typename\n}\n" },
-        json: true
+function parseCsvLine(text) {
+    const result = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"') {
+            if (inQuotes && text[i + 1] === '"') {
+                cur += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            result.push(cur.trim());
+            cur = '';
+        } else {
+            cur += char;
+        }
     }
-
-    let data = await new Promise(function (resolve, reject) {
-        request(o)
-            .then((data) => {
-                // console.log(data)
-                resolve(data);
-            })
-            .catch(() => reject(undefined))
-    })
-    let list = []
-    data.data.hacktivity_items.edges.forEach(i => {
-        list.push({
-            id: i.node.databaseId,
-            title: i.node.report.title,
-            url: i.node.report.url,
-            reporter: i.node.reporter.username,
-            program: {
-                name:i.node.team.name,
-                url:i.node.team.url
-            },
-            total_awarded_amount: i.node.total_awarded_amount,
-            severity_rating: i.node.severity_rating,
-            latest_disclosable_activity_at: i.node.latest_disclosable_activity_at
-        })
-    });
-    data = {
-        total_count: data.data.hacktivity_items.total_count,
-        items: list,
-    }
-    return data
+    result.push(cur.trim());
+    return result;
 }
 
-// async function main() {
-//     console.log(await HackerOne());
-// }
+async function fetchFromGithubReports(limit = 100) {
+    const url = 'https://raw.githubusercontent.com/reddelexc/hackerone-reports/master/data.csv';
+    const response = await fetch(url, {
+        headers: { 'User-Agent': 'BugFeed/1.0' }
+    });
+    if (!response.ok) {
+        throw new Error(`GitHub responded with status ${response.status}`);
+    }
+    const text = await response.text();
+    const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length <= 1) return [];
 
-// main()
-module.exports = HackerOne
+    // Header: program,title,link,upvotes,bounty,vuln_type
+    // Skip header line
+    const dataLines = lines.slice(1, limit + 1);
+    const items = [];
+
+    for (let i = 0; i < dataLines.length; i++) {
+        const row = parseCsvLine(dataLines[i]);
+        if (row.length < 3) continue;
+
+        const program = row[0] || 'Unknown';
+        const title = row[1] || 'Disclosed Vulnerability';
+        let rawLink = row[2] || '';
+        const upvotes = row[3] || '0';
+        const bounty = row[4] ? parseFloat(row[4]) : 0;
+        const vulnType = row[5] || '';
+
+        if (!rawLink.startsWith('http')) {
+            rawLink = 'https://' + rawLink;
+        }
+
+        const idMatch = rawLink.match(/reports\/(\d+)/);
+        const reportId = idMatch ? `h1-${idMatch[1]}` : `h1-row-${i}`;
+
+        const tags = [program];
+        if (vulnType) tags.push(vulnType);
+        if (bounty > 0) tags.push(`$${bounty.toLocaleString()}`);
+        if (parseInt(upvotes, 10) > 10) tags.push(`🔥 ${upvotes} upvotes`);
+
+        items.push({
+            id: reportId,
+            title: title.replace(/^"|"$/g, ''),
+            source: 'HackerOne',
+            category: 'vulnerabilities',
+            url: rawLink,
+            published_at: new Date(Date.now() - i * 3600 * 1000).toISOString().split('T')[0],
+            tags: tags.filter(Boolean)
+        });
+    }
+
+    return items;
+}
+
+async function fetchFromGraphQL(limit = 25) {
+    const query = {
+        operationName: "HacktivityPageQuery",
+        variables: {
+            querystring: "",
+            where: { report: { disclosed_at: { _is_null: false } } },
+            orderBy: { field: "popular", direction: "DESC" },
+            count: limit
+        },
+        query: `query HacktivityPageQuery($querystring: String, $orderBy: HacktivityItemOrderInput, $where: FiltersHacktivityItemFilterInput, $count: Int) {
+          hacktivity_items(first: $count, query: $querystring, order_by: $orderBy, where: $where) {
+            edges {
+              node {
+                ... on HacktivityItemInterface {
+                  id
+                  databaseId: _id
+                }
+                ... on Disclosed {
+                  report {
+                    id
+                    title
+                    url
+                  }
+                  team {
+                    name
+                  }
+                  total_awarded_amount
+                  severity_rating
+                  latest_disclosable_activity_at
+                }
+              }
+            }
+          }
+        }`
+    };
+
+    const res = await fetch("https://hackerone.com/graphql", {
+        method: "POST",
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(query)
+    });
+
+    if (!res.ok) throw new Error(`GraphQL HTTP ${res.status}`);
+    const json = await res.json();
+    const edges = json?.data?.hacktivity_items?.edges || [];
+
+    return edges.map((e, idx) => {
+        const node = e.node || {};
+        const rep = node.report || {};
+        const team = node.team || {};
+        const tags = [team.name].filter(Boolean);
+        if (node.severity_rating) tags.push(node.severity_rating.toUpperCase());
+        if (node.total_awarded_amount) tags.push(`$${node.total_awarded_amount}`);
+
+        return {
+            id: `h1-${node.databaseId || idx}`,
+            title: rep.title || 'HackerOne Disclosed Report',
+            source: 'HackerOne',
+            category: 'vulnerabilities',
+            url: rep.url || `https://hackerone.com/reports/${node.databaseId}`,
+            published_at: node.latest_disclosable_activity_at ? node.latest_disclosable_activity_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            tags
+        };
+    });
+}
+
+async function getHackerOneFeed(limit = 60) {
+    try {
+        const items = await fetchFromGithubReports(limit);
+        if (items.length > 0) return items;
+    } catch (err) {
+        console.warn('[HackerOne Feed] GitHub CSV fetch failed, falling back to GraphQL:', err.message);
+    }
+
+    try {
+        return await fetchFromGraphQL(Math.min(limit, 30));
+    } catch (err) {
+        console.error('[HackerOne Feed] Both sources failed:', err.message);
+        return [];
+    }
+}
+
+module.exports = getHackerOneFeed;
