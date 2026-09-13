@@ -1,10 +1,18 @@
 module.exports = {
-    chainWebpack: config => {
-      config.plugin("provide").use(require("webpack").ProvidePlugin, [
-        {
-          $: "jquery",
-          jQuery: "jquery"
-        }
-      ]);
+  lintOnSave: false,
+  chainWebpack: config => {
+    config.plugin('html').tap(args => {
+      args[0].title = 'Bug Feed | Cyber Threat Intelligence';
+      return args;
+    });
+  },
+  devServer: {
+    port: 8080,
+    proxy: {
+      '^/api': {
+        target: 'http://localhost:9600',
+        changeOrigin: true
+      }
     }
-  };
+  }
+};
