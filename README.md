@@ -26,25 +26,30 @@
 - **100% Verified Direct Links**: Direct action buttons to **`[ 📦 GitHub PoC ]`**, **`[ 🛡️ CVE.org ]`**, **`[ 📑 NVD NIST ]`**, and **`[ 🔍 OSV ]`** with zero broken links.
 - **High-Performance Pagination**: Browse 12,000 items at 60 FPS (50 items/page) with instant keyword search.
 
-### 🤖 2. Automated Ingestion & $O(1)$ Deduplication Worker
+### 📰 3. CyprWana Blog
+- Arabic cyber threat briefs, rendered right-to-left, with English terms, links, and CVE identifiers kept as written.
+- One Markdown file per brief in [`posts/`](posts/). The server reads that folder on each request, so a new file shows up on refresh.
+- List at `/blog` and a page per brief at `/blog/YYYY-MM-DD-HHMM`.
+
+### 🤖 4. Automated Ingestion & $O(1)$ Deduplication Worker
 - **Scheduled Auto-Sync**: Background worker polls threat feeds on a configurable schedule (default: **every 15 minutes**).
 - **Multi-Tier Deduplication**: Normalizes URLs, strips tracking parameters, and computes SHA-256 fingerprints.
 - **$O(1)$ In-Memory Registry**: Constant-time Set lookup handles 12,000+ items in milliseconds.
 - **Atomic Persistence**: Uses atomic temporary-file swaps to guarantee zero corruption in `feeds_store.json`.
 
-### 💰 3. HackerOne & Community Writeups
+### 💰 5. HackerOne & Community Writeups
 - Aggregates recently disclosed HackerOne bug reports with bounties, programs, and vulnerability types.
 - Curates 6,400+ community writeups from PentesterLand (SSRF, IDOR, SQLi, RCE, OAuth).
 
-### 📰 4. Cybersecurity News Radar
+### 📰 6. Cybersecurity News Radar
 - Real-time RSS integration from The Hacker News and BleepingComputer.
 
-### 💡 5. Twitter / X Bug Bounty Tips
+### 💡 7. Twitter / X Bug Bounty Tips
 - Direct links to specific tweets (`https://x.com/{handle}/status/{id}`).
 - Curated threat researchers and hackers (`@vxunderground`, `@Jhaddix`, `@naglinagli`, `@kinugawamasato`).
 - Dynamic runtime tracking: add custom accounts and hashtags directly from the UI.
 
-### 🖥️ 6. Cyberpunk SOC Terminal Interface
+### 🖥️ 8. Cyberpunk SOC Terminal Interface
 - Dark & Light mode toggle with local storage persistence.
 - Offline Bookmarks: Save reports, PoCs, and tips to read offline.
 - Real-time SOC dashboard status bar with one-click **⚡ Sync Now** trigger.
@@ -59,9 +64,11 @@ Bug-Feed
 │   ├── data/                      # Persistent stores (feeds_store.json, seen_registry.json)
 │   ├── feed/                      # Intelligence collectors (cve, hackerone, pentesterland, news, tweets)
 │   ├── routes/                    # Express REST API endpoints
+│   ├── blog.js                    # Markdown brief loader
 │   ├── cache.js                   # Memory cache with TTL
 │   ├── storage.js                 # SHA-256 fingerprinting & O(1) deduplication engine
 │   └── worker.js                  # Ingestion cron scheduler & concurrency manager
+├── posts/                         # One Markdown file per cyber brief
 ├── frontend/
 │   ├── src/
 │   │   ├── components/            # FeedCard, Navbar, and tab fragments
@@ -139,10 +146,69 @@ Open **[http://localhost:9600](http://localhost:9600)** in your browser.
 | `GET` | `/api/feeds/hackerone` | Disclosed bug reports & writeups. |
 | `GET` | `/api/feeds/news` | Infosec headlines. |
 | `GET` | `/api/feeds/tips` | Bug bounty tips & tweet threads. |
+| `GET` | `/api/blog` | Cyber brief index (title, Riyadh time, excerpt, CVE ids). |
+| `GET` | `/api/blog/:slug` | One brief, rendered to HTML. Slug is the filename without `.md`. |
 | `GET` | `/api/worker/status` | Real-time worker and storage metrics. |
 | `POST` | `/api/worker/sync` | Trigger an immediate sync cycle. |
 | `POST` | `/api/twitter/account`| Add a new Twitter handle to track. |
 | `POST` | `/api/twitter/hashtag`| Add a new hashtag to monitor. |
+
+---
+
+## 📝 Adding a blog post
+
+Drop **one file** into `posts/`. No frontend rebuild is required. Save the file and refresh `/blog`.
+
+### Path
+
+```text
+posts/YYYY-MM-DD-HHMM.md
+```
+
+- `YYYY-MM-DD` is the brief date.
+- `HHMM` is the time in **Asia/Riyadh**, 24-hour, with no colon. `0600` is 06:00, `1400` is 14:00, `2200` is 22:00.
+- The filename without `.md` is the URL slug. `posts/2026-11-19-1400.md` is served at `/blog/2026-11-19-1400`.
+- Files that do not match this name are ignored.
+
+### Format
+
+The title is the lead item (the top story), not the date banner. Keep the author's wording, every item, every source link, and every CVE id. The sample below is shortened so the format is easy to copy. A real file keeps every line of the brief.
+
+```markdown
+---
+title: "🔴 الأهم : Citrix NetScaler ADC/Gateway - تحديث ثاني لازم (CVE-2026-120868)"
+date: 2026-11-19
+time: "14:00"
+timezone: Asia/Riyadh
+lang: ar
+---
+
+**🛡️ تحديث سيبر | الخميس 19 نوفمبر - 2 الظهر**
+*الجديد بس من بعد تقرير الصبح 🙂*
+
+**🔴 الأهم : Citrix NetScaler ADC/Gateway - تحديث ثاني لازم (CVE-2026-120868)**
+- نشرة Citrix (12 نوفمبر) صلّحت 28 ثغرة، أخطرها CVE-2026-120868 بـ CVSS 9.3
+*POC : ما شفت كود منشور لين الحين*
+[naif_aiydh](https://x.com/naif_aiydh/status/2123301576370495809)
+
+*عموما ، الأولوية اليوم NetScaler و PHP .. 💙 CyprWana*
+```
+
+Markdown the page understands:
+
+| Write this | It renders as |
+| :--- | :--- |
+| `**text**` | Bold item headline |
+| `*text*` | Italic note. A line wrapped in single asterisks can contain a literal `*` inside it. |
+| `` `code` `` | Monospace code |
+| `[label](https://example.com)` | Source link. Use `http` or `https` only. |
+| A line starting with `- ` | Bullet item |
+| A line that is `---` | Section break |
+| `CVE-2026-120868` | The same CVE id, linked to its NVD record |
+
+The article is `lang="ar"` and `dir="rtl"`. English names, URLs, code, and CVE ids stay left-to-right inside the Arabic text.
+
+Date and time in the filename win over the front matter. `timezone` defaults to `Asia/Riyadh` when it is omitted. The body is the full brief, including the original banner, so nothing from the brief is dropped.
 
 ---
 

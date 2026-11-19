@@ -231,3 +231,15 @@ Adds a new hashtag to monitor.
 ### `GET /api/feeds/metrics/todays`
 Returns counts for the dashboard overview charts and stat boxes.
 - **Response**: `{ "hackerone": 60, "writeups": 50, "cve": 11956, "news": 50, "tips": 29, "total": 12145 }`
+
+---
+
+## 5. Blog
+
+Briefs live in `posts/YYYY-MM-DD-HHMM.md`. Both routes require the same bearer token as the rest of the API.
+
+### `GET /api/blog`
+Returns the brief index, newest first. Each item has `slug`, `title`, `date`, `time`, `timezone`, `published_at` (`+03:00`), `excerpt`, `cves`, and `text`.
+
+### `GET /api/blog/:slug`
+Returns one brief, including `html` rendered from the Markdown body. Unknown slugs return `404`. The slug must match `^[a-z0-9-]+$`.

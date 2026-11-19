@@ -7,7 +7,8 @@ This document details each Vue 3 component in the Bug-Feed platform, including p
 ## 1. `App.vue` (Application Shell)
 The root component that anchors the top navigation header, global search bar, bookmarks counter, and tab routing.
 - **State**:
-  - `activeTab`: `'welcome' | 'disclosures' | 'cve' | 'news' | 'tips' | 'saved'`.
+  - `activeTab`: `'welcome' | 'disclosures' | 'cve' | 'news' | 'blog' | 'tips' | 'saved'`.
+  - `blogSlug`: Filename slug of the open brief, or `null` on the list. URLs are `/blog` and `/blog/:slug`.
   - `searchQuery`: Bound to the sticky search bar.
   - `savedItems`: Array of bookmarked objects synchronized with `localStorage`.
   - `theme`: `'dark' | 'light'`.
@@ -71,6 +72,14 @@ Curated bug bounty methodologies and tweet threads.
 
 ---
 
-## 7. `SavedFeed.vue` (Bookmarks Manager)
+## 7. `BlogList.vue` and `BlogPost.vue`
+The Blog tab reads `GET /api/blog` and `GET /api/blog/:slug`.
+- The list is searchable from the global search box (title, excerpt, body, CVE id).
+- A brief opens at `/blog/YYYY-MM-DD-HHMM` and is rendered `dir="rtl"` `lang="ar"`.
+- Posts are Markdown files in `posts/`. See the root README for the exact filename and front matter.
+
+---
+
+## 8. `SavedFeed.vue` (Bookmarks Manager)
 - Displays all bookmarked items saved in local browser storage.
 - Search within bookmarks and one-click "Clear All" action.
