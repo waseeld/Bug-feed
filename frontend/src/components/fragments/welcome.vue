@@ -88,7 +88,7 @@
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div class="flex-grow-1">
           <div class="text-muted text-uppercase" style="font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.6px;">
-            Latest brief · <span dir="ltr">{{ latestBrief.date }} {{ latestBrief.time }} Asia/Riyadh</span>
+            Latest brief · <span dir="ltr">{{ latestBrief.date }}<template v-if="latestBrief.time"> {{ latestBrief.time }}</template> Asia/Riyadh</span>
           </div>
           <h2 dir="rtl" lang="ar" class="h5 mt-2 mb-1" style="line-height: 1.7; font-family: 'IBM Plex Sans Arabic', 'Noto Naskh Arabic', var(--font-sans);">
             {{ latestBrief.title }}

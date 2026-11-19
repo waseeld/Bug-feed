@@ -36,7 +36,7 @@
           :href="'/blog/' + post.slug"
           @click.prevent="$emit('open', post.slug)"
         >
-          <time dir="ltr" :datetime="post.published_at">{{ post.date }} · {{ post.time }} · Asia/Riyadh</time>
+          <time dir="ltr" :datetime="post.published_at">{{ post.date }}<template v-if="post.time"> · {{ post.time }}</template> · {{ post.timezone || 'Asia/Riyadh' }}</time>
           <h2 dir="rtl" lang="ar">{{ post.title }}</h2>
           <p v-if="post.excerpt" dir="rtl" lang="ar">{{ post.excerpt }}</p>
           <div v-if="post.cves && post.cves.length" class="blog-cves" dir="ltr">

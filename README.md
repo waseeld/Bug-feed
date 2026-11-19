@@ -27,9 +27,9 @@
 - **High-Performance Pagination**: Browse 12,000 items at 60 FPS (50 items/page) with instant keyword search.
 
 ### 📰 3. CyprWana Blog
-- Arabic cyber threat briefs, rendered right-to-left, with English terms, links, and CVE identifiers kept as written.
-- One Markdown file per brief in [`posts/`](posts/). The server reads that folder on each request, so a new file shows up on refresh.
-- List at `/blog` and a page per brief at `/blog/YYYY-MM-DD-HHMM`.
+- Arabic daily cyber reports, rendered right-to-left, with English terms, links, and CVE identifiers kept as written.
+- One Markdown file per day in [`posts/`](posts/). The server reads that folder on each request, so a new file shows up on refresh.
+- List at `/blog` and a page per day at `/blog/YYYY-MM-DD`. Older files named `YYYY-MM-DD-HHMM` still load.
 
 ### 🤖 4. Automated Ingestion & $O(1)$ Deduplication Worker
 - **Scheduled Auto-Sync**: Background worker polls threat feeds on a configurable schedule (default: **every 15 minutes**).
@@ -68,7 +68,7 @@ Bug-Feed
 │   ├── cache.js                   # Memory cache with TTL
 │   ├── storage.js                 # SHA-256 fingerprinting & O(1) deduplication engine
 │   └── worker.js                  # Ingestion cron scheduler & concurrency manager
-├── posts/                         # One Markdown file per cyber brief
+├── posts/                         # One daily report, or an older timed brief
 ├── frontend/
 │   ├── src/
 │   │   ├── components/            # FeedCard, Navbar, and tab fragments
@@ -157,58 +157,71 @@ Open **[http://localhost:9600](http://localhost:9600)** in your browser.
 
 ## 📝 Adding a blog post
 
-Drop **one file** into `posts/`. No frontend rebuild is required. Save the file and refresh `/blog`.
+One file per calendar day. Drop it into `posts/` and refresh `/blog`. No frontend rebuild.
 
 ### Path
 
 ```text
-posts/YYYY-MM-DD-HHMM.md
+posts/YYYY-MM-DD.md
 ```
 
-- `YYYY-MM-DD` is the brief date.
-- `HHMM` is the time in **Asia/Riyadh**, 24-hour, with no colon. `0600` is 06:00, `1400` is 14:00, `2200` is 22:00.
-- The filename without `.md` is the URL slug. `posts/2026-11-19-1400.md` is served at `/blog/2026-11-19-1400`.
-- Files that do not match this name are ignored.
+- `YYYY-MM-DD` is the report date in **Asia/Riyadh**.
+- The filename without `.md` is the URL. `posts/2026-11-19.md` is served at `/blog/2026-11-19`.
+- Older briefs named `posts/YYYY-MM-DD-HHMM.md` still load. `HHMM` is 24-hour Riyadh time with no colon (`1400` is 14:00). Do not add a second file for the same day.
+- Any other filename is ignored.
 
-### Format
-
-The title is the lead item (the top story), not the date banner. Keep the author's wording, every item, every source link, and every CVE id. The sample below is shortened so the format is easy to copy. A real file keeps every line of the brief.
+### Front matter
 
 ```markdown
 ---
-title: "🔴 الأهم : Citrix NetScaler ADC/Gateway - تحديث ثاني لازم (CVE-2026-120868)"
+title: "تقرير سيبر — الخميس 19 نوفمبر 2026"
 date: 2026-11-19
-time: "14:00"
 timezone: Asia/Riyadh
 lang: ar
 ---
+```
 
-**🛡️ تحديث سيبر | الخميس 19 نوفمبر - 2 الظهر**
-*الجديد بس من بعد تقرير الصبح 🙂*
+Leave `time` out of a daily file. On an older `HHMM` file, the clock in the filename wins over front matter. `timezone` defaults to `Asia/Riyadh`.
 
-**🔴 الأهم : Citrix NetScaler ADC/Gateway - تحديث ثاني لازم (CVE-2026-120868)**
-- نشرة Citrix (12 نوفمبر) صلّحت 28 ثغرة، أخطرها CVE-2026-120868 بـ CVSS 9.3
-*POC : ما شفت كود منشور لين الحين*
-[naif_aiydh](https://x.com/naif_aiydh/status/2123301576370495809)
+### Body
 
-*عموما ، الأولوية اليوم NetScaler و PHP .. 💙 CyprWana*
+Saudi Arabic, English product names and CVE ids in Latin letters. One section per item, enough that the reader does not need the original brief. For each item include only what the briefs or a reliable public source actually say:
+
+- what the product or service is, and who uses it
+- the issue, affected versions, fixed versions, and severity if a source gives one
+- whether it is exploited or listed in KEV, when a source says so
+- impact, the public POC if one is linked, or the source's conceptual steps labeled as conceptual
+- mitigation and the source links
+
+Do not add a CVE id, version, exploit step, or link that is not in the source. If a field is missing, leave it out.
+
+```markdown
+## الثغرات
+
+### REDCap — CVE-2026-90817
+
+**وش هو:** منصة REDCap من Vanderbilt، مستخدمة في المستشفيات والأبحاث الطبية.
+**المشكلة:** تنفيذ كود بدون تسجيل دخول. CVSS 9.8. انضافت لـ KEV.
+**النسخ:** المتأثر 13.3.0 وأحدث قبل النسخ المصلّحة. المصدر ما سمّى رقم النسخة المصلّحة.
+**POC:** مفهومي، من المصدر: استبيان عام، ثم بيانات استيراد مصاغة، ثم حقن كود.
+**التخفيف:** حدّث، وراجع السيرفر لو كان مكشوف.
+**المصادر:** [التفاصيل](https://x.com/Python_s_/status/2123203162316136737)
 ```
 
 Markdown the page understands:
 
 | Write this | It renders as |
 | :--- | :--- |
-| `**text**` | Bold item headline |
-| `*text*` | Italic note. A line wrapped in single asterisks can contain a literal `*` inside it. |
+| `#`, `##`, or `###` | Heading |
+| `**text**` | Bold |
+| `*text*` | Italic. A line wrapped in single asterisks can contain a literal `*` inside it. |
 | `` `code` `` | Monospace code |
 | `[label](https://example.com)` | Source link. Use `http` or `https` only. |
-| A line starting with `- ` | Bullet item |
+| A line starting with `- ` | Bullet |
 | A line that is `---` | Section break |
-| `CVE-2026-120868` | The same CVE id, linked to its NVD record |
+| `CVE-2026-90817` | The same CVE id, linked to its NVD record |
 
 The article is `lang="ar"` and `dir="rtl"`. English names, URLs, code, and CVE ids stay left-to-right inside the Arabic text.
-
-Date and time in the filename win over the front matter. `timezone` defaults to `Asia/Riyadh` when it is omitted. The body is the full brief, including the original banner, so nothing from the brief is dropped.
 
 ---
 

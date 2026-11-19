@@ -29,16 +29,14 @@ const EXPECTED = [
     ['2026-11-18-0600', 'Java4Shell', 'CVE-2026-114938'],
     ['2026-11-18-1400', 'Puppet Server', 'CVE-2026-115731'],
     ['2026-11-18-2200', 'nginx2root', null],
-    ['2026-11-19-0600', 'REDCap', null],
-    ['2026-11-19-1400', 'Citrix NetScaler', 'CVE-2026-120868'],
-    ['2026-11-19-2200', 'Ruby', 'CVE-2026-132825']
+    ['2026-11-19', '19 نوفمبر', 'CVE-2026-132825']
 ];
 
 async function runBlogTests() {
     await describe('Cyber Brief Blog', async () => {
-        await it('should publish every dated brief (at least the 22 known ones), newest first', () => {
+        await it('should publish every dated brief, newest first', () => {
             const posts = blog.listPosts();
-            const files = fs.readdirSync(blog.POSTS_DIR).filter((name) => /^\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(name));
+            const files = fs.readdirSync(blog.POSTS_DIR).filter((name) => /^\d{4}-\d{2}-\d{2}(?:-\d{4})?\.md$/.test(name));
             assert.strictEqual(posts.length, files.length, `expected ${files.length} posts, got ${posts.length}`);
             assert.ok(posts.length >= EXPECTED.length);
             const slugs = posts.map((post) => post.slug);
@@ -58,11 +56,16 @@ async function runBlogTests() {
                 const post = blog.getPost(slug);
                 assert.ok(post, `missing post ${slug}`);
                 assert.ok(post.title.includes(titlePart), `${slug} title: ${post.title}`);
-                const match = slug.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})$/);
+                const match = slug.match(/^(\d{4}-\d{2}-\d{2})(?:-(\d{2})(\d{2}))?$/);
                 assert.strictEqual(post.date, match[1]);
-                assert.strictEqual(post.time, `${match[2]}:${match[3]}`);
+                if (match[2]) {
+                    assert.strictEqual(post.time, `${match[2]}:${match[3]}`);
+                    assert.strictEqual(post.published_at, `${post.date}T${post.time}:00+03:00`);
+                } else {
+                    assert.strictEqual(post.time, '');
+                    assert.strictEqual(post.published_at, `${post.date}T23:59:59+03:00`);
+                }
                 assert.strictEqual(post.timezone, 'Asia/Riyadh');
-                assert.strictEqual(post.published_at, `${post.date}T${post.time}:00+03:00`);
                 assert.strictEqual(post.lang, 'ar');
                 if (cve) {
                     assert.ok(post.title.includes(cve) || post.cves.includes(cve), `${slug} lost ${cve}`);
@@ -76,7 +79,7 @@ async function runBlogTests() {
         });
 
         await it('should keep source links, code, and the author asterisk in the Citrix and OpenSSH briefs', () => {
-            const citrix = blog.getPost('2026-11-19-1400');
+            const citrix = blog.getPost('2026-11-19');
             assert.ok(citrix.html.includes('https://x.com/naif_aiydh/status/2123301576370495809'));
             assert.ok(citrix.html.includes('Smith &amp; Green') || citrix.text.includes('Smith & Green'));
             assert.ok(citrix.text.includes('CyprWana'));
@@ -103,12 +106,12 @@ async function runBlogTests() {
         await it('should ignore files that are not a dated brief', () => {
             const names = fs.readdirSync(blog.POSTS_DIR);
             names.forEach((name) => {
-                assert.ok(/^\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(name), `unexpected file in posts/: ${name}`);
+                assert.ok(/^\d{4}-\d{2}-\d{2}(?:-\d{4})?\.md$/.test(name), `unexpected file in posts/: ${name}`);
             });
         });
 
         await it('should read front matter the same with Windows (CRLF) line endings', () => {
-            const sample = fs.readFileSync(path.join(blog.POSTS_DIR, '2026-11-19-1400.md'), 'utf8');
+            const sample = fs.readFileSync(path.join(blog.POSTS_DIR, '2026-11-19.md'), 'utf8');
             const lf = sample.replace(/\r\n/g, '\n');
             const crlf = lf.replace(/\n/g, '\r\n');
             const meta = blog.parseFrontmatter(lf).meta;

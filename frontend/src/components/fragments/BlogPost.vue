@@ -11,7 +11,7 @@
       <a class="blog-back" href="/blog" dir="ltr" @click.prevent="$emit('back')">← All briefs</a>
       <p class="blog-kicker" dir="ltr">CYPRWANA BRIEF</p>
       <h1>{{ post.title }}</h1>
-      <time dir="ltr" :datetime="post.published_at">{{ post.date }} · {{ post.time }} · {{ post.timezone || 'Asia/Riyadh' }}</time>
+      <time dir="ltr" :datetime="post.published_at">{{ post.date }}<template v-if="post.time"> · {{ post.time }}</template> · {{ post.timezone || 'Asia/Riyadh' }}</time>
       <div v-if="post.cves && post.cves.length" class="blog-cves blog-cves-post" dir="ltr">
         <a
           v-for="cve in post.cves"

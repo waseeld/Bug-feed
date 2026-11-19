@@ -1,10 +1,10 @@
 /**
  * Cyber brief blog.
  *
- * Posts are one Markdown file each in /posts. The filename is the slug and
- * the Asia/Riyadh timestamp:
+ * Posts are one Markdown file each in /posts.
  *
- *   posts/YYYY-MM-DD-HHMM.md
+ *   posts/YYYY-MM-DD.md         daily report (no clock in the filename)
+ *   posts/YYYY-MM-DD-HHMM.md    older brief, time in Asia/Riyadh
  *
  * The directory is read on each request, so a new file is visible after refresh.
  */
@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const POSTS_DIR = path.join(__dirname, '..', 'posts');
-const FILE_RE = /^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})\.md$/;
+const FILE_RE = /^(\d{4}-\d{2}-\d{2})(?:-(\d{2})(\d{2}))?\.md$/;
 const CVE_RE = /CVE-\d{4}-\d{4,7}/g;
 
 function escapeHtml(value) {
@@ -119,6 +119,13 @@ function renderMarkdown(markdown) {
             list.push(trimmed.slice(2));
             return;
         }
+        const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+            flushList();
+            const level = heading[1].length + 1;
+            blocks.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+            return;
+        }
         flushList();
         blocks.push(`<p>${renderRich(trimmed)}</p>`);
     });
@@ -160,7 +167,7 @@ function isHeadline(line) {
 function makeExcerpt(body) {
     const lines = String(body || '').replace(/\r\n/g, '\n').split('\n').map((line) => line.trim()).filter(Boolean);
     for (const line of lines) {
-        if (/^---$/.test(line) || isHeadline(line)) continue;
+        if (/^---$/.test(line) || isHeadline(line) || /^#{1,3}\s+/.test(line)) continue;
         const plain = stripInline(line.replace(/^- /, ''));
         if (plain) return clip(plain, 180);
     }
@@ -187,10 +194,13 @@ function readPost(filePath) {
     const raw = fs.readFileSync(filePath, 'utf8');
     const { meta, body } = parseFrontmatter(raw);
     const date = match[1];
-    const time = `${match[2]}:${match[3]}`;
+    const time = match[2] ? `${match[2]}:${match[3]}` : '';
     const slug = base.slice(0, -3);
     const text = toPlain(body);
     const title = (meta.title || '').trim() || stripInline(text.split('\n').find(Boolean) || slug);
+    // A daily file has no clock. Sort it at the end of that Riyadh day
+    // so it stays after any same-day HHMM brief. The empty time is not shown.
+    const published_at = time ? `${date}T${time}:00+03:00` : `${date}T23:59:59+03:00`;
 
     return {
         slug,
@@ -199,7 +209,7 @@ function readPost(filePath) {
         time,
         timezone: meta.timezone || 'Asia/Riyadh',
         lang: meta.lang || 'ar',
-        published_at: `${date}T${time}:00+03:00`,
+        published_at,
         excerpt: makeExcerpt(body),
         cves: unique(text.match(CVE_RE) || []),
         text,
