@@ -30,14 +30,15 @@ const EXPECTED = [
     ['2026-11-18-1400', 'Puppet Server', 'CVE-2026-115731'],
     ['2026-11-18-2200', 'nginx2root', null],
     ['2026-11-19-0600', 'REDCap', null],
-    ['2026-11-19-1400', 'Citrix NetScaler', 'CVE-2026-120868']
+    ['2026-11-19-1400', 'Citrix NetScaler', 'CVE-2026-120868'],
+    ['2026-11-19-2200', 'Ruby', 'CVE-2026-132825']
 ];
 
 async function runBlogTests() {
     await describe('Cyber Brief Blog', async () => {
-        await it('should publish all 21 briefs, newest first', () => {
+        await it('should publish all 22 briefs, newest first', () => {
             const posts = blog.listPosts();
-            assert.strictEqual(posts.length, 21, `expected 21 posts, got ${posts.length}`);
+            assert.strictEqual(posts.length, 22, `expected 22 posts, got ${posts.length}`);
             const slugs = posts.map((post) => post.slug);
             EXPECTED.forEach(([slug]) => {
                 assert.ok(slugs.includes(slug), `missing ${slug}`);
@@ -99,7 +100,7 @@ async function runBlogTests() {
 
         await it('should ignore files that are not a dated brief', () => {
             const names = fs.readdirSync(blog.POSTS_DIR);
-            assert.strictEqual(names.filter((name) => name.endsWith('.md')).length, 21);
+            assert.strictEqual(names.filter((name) => name.endsWith('.md')).length, 22);
             names.forEach((name) => {
                 assert.ok(/^\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(name), name);
             });
