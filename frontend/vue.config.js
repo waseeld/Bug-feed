@@ -7,11 +7,12 @@ module.exports = {
     });
   },
   devServer: {
-    port: 8080,
+    port: Number(process.env.DEV_PORT) || 8080,
     historyApiFallback: true,
     proxy: {
       '^/api': {
-        target: 'http://localhost:9600',
+        // Override with API_TARGET=http://localhost:<port> to point the dev UI at another backend.
+        target: process.env.API_TARGET || 'http://localhost:9600',
         changeOrigin: true
       }
     }

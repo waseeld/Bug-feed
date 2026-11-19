@@ -36,9 +36,11 @@ const EXPECTED = [
 
 async function runBlogTests() {
     await describe('Cyber Brief Blog', async () => {
-        await it('should publish all 22 briefs, newest first', () => {
+        await it('should publish every dated brief (at least the 22 known ones), newest first', () => {
             const posts = blog.listPosts();
-            assert.strictEqual(posts.length, 22, `expected 22 posts, got ${posts.length}`);
+            const files = fs.readdirSync(blog.POSTS_DIR).filter((name) => /^\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(name));
+            assert.strictEqual(posts.length, files.length, `expected ${files.length} posts, got ${posts.length}`);
+            assert.ok(posts.length >= EXPECTED.length);
             const slugs = posts.map((post) => post.slug);
             EXPECTED.forEach(([slug]) => {
                 assert.ok(slugs.includes(slug), `missing ${slug}`);
@@ -100,12 +102,18 @@ async function runBlogTests() {
 
         await it('should ignore files that are not a dated brief', () => {
             const names = fs.readdirSync(blog.POSTS_DIR);
-            assert.strictEqual(names.filter((name) => name.endsWith('.md')).length, 22);
             names.forEach((name) => {
-                assert.ok(/^\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(name), name);
+                assert.ok(/^\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(name), `unexpected file in posts/: ${name}`);
             });
-            const sample = path.join(blog.POSTS_DIR, '2026-11-19-1400.md');
-            assert.ok(fs.readFileSync(sample, 'utf8').startsWith('---\n'));
+        });
+
+        await it('should read front matter the same with Windows (CRLF) line endings', () => {
+            const sample = fs.readFileSync(path.join(blog.POSTS_DIR, '2026-11-19-1400.md'), 'utf8');
+            const lf = sample.replace(/\r\n/g, '\n');
+            const crlf = lf.replace(/\n/g, '\r\n');
+            const meta = blog.parseFrontmatter(lf).meta;
+            assert.ok(Object.keys(meta).length > 0, 'sample post has front matter');
+            assert.deepStrictEqual(blog.parseFrontmatter(crlf).meta, meta);
         });
     });
 }

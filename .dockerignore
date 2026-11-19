@@ -9,3 +9,5 @@ backend/data/auth.json
 test
 .DS_Store
 *.log
+backend/data/secret.key
+backend/data/community_sources.json

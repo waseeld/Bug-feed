@@ -8,10 +8,16 @@
     "worker": "node backend/worker.js",
     "build:frontend": "npm --prefix frontend run build",
     "test": "node test/run-all.js",
-    "test:storage": "node test/storage.test.js",
-    "test:blog": "node test/blog.test.js",
-    "test:feeds": "node test/feeds.test.js",
-    "test:api": "node test/api.test.js"
+    "test:storage": "node test/run-all.js storage",
+    "test:blog": "node test/run-all.js blog",
+    "test:auth": "node test/run-all.js auth",
+    "test:community": "node test/run-all.js community",
+    "test:worker": "node test/run-all.js worker",
+    "test:api": "node test/run-all.js api",
+    "test:live": "node test/live.js"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "keywords": [
     "bug-bounty",
@@ -27,8 +33,6 @@
   "dependencies": {
     "compression": "^1.7.4",
     "express": "^4.17.2",
-    "node-cron": "^3.0.0",
-    "request": "^2.88.2",
-    "request-promise": "^4.2.6"
+    "node-cron": "^4.6.0"
   }
 }

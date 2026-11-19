@@ -25,7 +25,8 @@ function escapeHtml(value) {
 }
 
 function parseFrontmatter(raw) {
-    const text = raw.replace(/^\uFEFF/, '');
+    // Normalise Windows line endings (git autocrlf) so the front matter is still found.
+    const text = raw.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
     if (!text.startsWith('---\n')) {
         return { meta: {}, body: text };
     }

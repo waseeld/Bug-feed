@@ -7,7 +7,7 @@ const getCveFeed = require('../backend/feed/cve');
 const getHackerOneFeed = require('../backend/feed/hackerone');
 const getPentesterLandFeed = require('../backend/feed/pentesterland');
 const getNewsFeed = require('../backend/feed/news');
-const { getTweetsFeed, getTrackedAccounts, getTrackedHashtags } = require('../backend/feed/tweets');
+const { getTweetsFeed, getArchiveItems, getTrackedAccounts, getTrackedHashtags } = require('../backend/feed/tweets');
 
 async function runFeedsTests() {
     await describe('Threat Intelligence Feeds Ingestion', async () => {
@@ -89,17 +89,32 @@ async function runFeedsTests() {
             assert.ok(first.source.includes('News') || first.source.includes('Bleeping') || first.source.includes('Hacker'));
         });
 
-        await it('Tweets Feed: should format direct status URLs with valid authors', async () => {
-            const tweets = await getTweetsFeed({ limit: 15 });
-            assert.ok(Array.isArray(tweets), 'Tweets must be an array');
-            assert.ok(tweets.length > 0, 'Must return at least 1 tweet item');
+        await it('Community Feed: should return live Mastodon/Bluesky posts with real dates', async () => {
+            const posts = await getTweetsFeed({ limit: 30, liveOnly: true });
+            assert.ok(Array.isArray(posts), 'Posts must be an array');
+            assert.ok(posts.length > 0, 'Must return at least 1 live post');
 
-            // Validate that URLs are direct status links
-            const first = tweets[0];
-            assert.ok(first.url.startsWith('https://x.com/') || first.url.startsWith('https://twitter.com/'), 'URL must point to x.com/twitter.com');
-            assert.ok(first.author, 'Tweet must have an author handle');
+            const first = posts[0];
+            assert.ok(['mastodon', 'bluesky'].includes(first.platform), `Unexpected platform ${first.platform}`);
+            assert.ok(/^https:\/\//.test(first.url), 'Post URL must be https');
+            assert.ok(first.author && first.author.handle, 'Post must have an author handle');
+            assert.ok(!Number.isNaN(Date.parse(first.published_at)), 'Post must have a real timestamp');
             assert.ok(Array.isArray(getTrackedAccounts()), 'Must provide tracked accounts list');
             assert.ok(Array.isArray(getTrackedHashtags()), 'Must provide tracked hashtags list');
+        });
+
+        await it('Community Feed: X archive keeps original dates and no invented counts', async () => {
+            const archive = getArchiveItems();
+            assert.ok(archive.length > 0, 'Archive must not be empty');
+            for (const item of archive) {
+                assert.strictEqual(item.archived, true);
+                assert.strictEqual(item.likes, null, `${item.id} must not report likes`);
+                const statusId = /\/status\/(\d+)/.exec(item.url);
+                if (statusId) {
+                    const fromId = Number((BigInt(statusId[1]) >> 22n) + 1288834974657n);
+                    assert.strictEqual(Date.parse(item.published_at), fromId, `${item.id} date must match its status ID`);
+                }
+            }
         });
     });
 }

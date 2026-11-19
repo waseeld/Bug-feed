@@ -299,6 +299,7 @@ import BlogList from './components/fragments/BlogList.vue';
 import BlogPost from './components/fragments/BlogPost.vue';
 import SavedFeed from './components/fragments/SavedFeed.vue';
 import AuthModal from './components/AuthModal.vue';
+import { setToken, clearToken } from './auth-token';
 
 export default {
   name: 'App',
@@ -359,9 +360,7 @@ export default {
   methods: {
     async checkAuthStatus() {
       try {
-        const token = localStorage.getItem('bugfeed_token') || sessionStorage.getItem('bugfeed_token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch('/api/auth/status', { headers });
+        const res = await fetch('/api/auth/status');
         const json = await res.json();
 
         if (!json.initialized) {
@@ -374,8 +373,7 @@ export default {
           this.authMode = 'login';
           this.authModalVisible = true;
           this.currentUser = null;
-          localStorage.removeItem('bugfeed_token');
-          sessionStorage.removeItem('bugfeed_token');
+          clearToken();
         } else {
           // Authenticated!
           this.authModalVisible = false;
@@ -386,11 +384,7 @@ export default {
       }
     },
     handleAuthSuccess({ user, token, remember }) {
-      if (remember) {
-        localStorage.setItem('bugfeed_token', token);
-      } else {
-        sessionStorage.setItem('bugfeed_token', token);
-      }
+      setToken(token, remember);
       this.currentUser = user;
       this.authModalVisible = false;
     },
@@ -402,9 +396,10 @@ export default {
     async logout() {
       try {
         await fetch('/api/auth/logout', { method: 'POST' });
-      } catch (e) {}
-      localStorage.removeItem('bugfeed_token');
-      sessionStorage.removeItem('bugfeed_token');
+      } catch (e) {
+        // Logging out is local; a network error doesn't matter here.
+      }
+      clearToken();
       this.currentUser = null;
       this.authMode = 'login';
       this.authModalVisible = true;
