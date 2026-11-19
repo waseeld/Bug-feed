@@ -9,6 +9,7 @@
     "build:frontend": "npm --prefix frontend run build",
     "test": "node test/run-all.js",
     "test:storage": "node test/storage.test.js",
+    "test:blog": "node test/blog.test.js",
     "test:feeds": "node test/feeds.test.js",
     "test:api": "node test/api.test.js"
   },

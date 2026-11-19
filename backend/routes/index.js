@@ -5,6 +5,7 @@ const storage = require('../storage');
 const worker = require('../worker');
 const auth = require('../auth');
 const authMiddleware = require('../middleware/auth');
+const blog = require('../blog');
 
 const getHackerOneFeed = require('../feed/hackerone');
 const getPentesterLandFeed = require('../feed/pentesterland');
@@ -327,6 +328,28 @@ router.post('/worker/interval', (req, res) => {
         message: `Sync interval updated to every ${mins} minutes`,
         data: result
     });
+});
+
+// Cyber brief blog. One Markdown file in /posts per brief.
+router.get('/blog', (req, res) => {
+    try {
+        const data = blog.listPosts();
+        res.json({ status: 200, count: data.length, data });
+    } catch (err) {
+        res.status(500).json({ status: 500, error: err.message, data: [] });
+    }
+});
+
+router.get('/blog/:slug', (req, res) => {
+    try {
+        const post = blog.getPost(req.params.slug);
+        if (!post) {
+            return res.status(404).json({ status: 404, error: 'Post not found' });
+        }
+        res.json({ status: 200, data: post });
+    } catch (err) {
+        res.status(500).json({ status: 500, error: err.message });
+    }
 });
 
 // Legacy support

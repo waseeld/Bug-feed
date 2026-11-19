@@ -1,5 +1,6 @@
 const express = require('express');
 const compression = require('compression');
+const fs = require('fs');
 const path = require('path');
 const config = require('./backend/config');
 const routes = require('./backend/routes/index');
@@ -28,7 +29,16 @@ const frontendDist = path.join(__dirname, 'frontend', 'dist');
 app.use(express.static(frontendDist));
 app.use(express.static(path.join(__dirname, 'frontend', 'public')));
 
+const frontendIndex = path.join(frontendDist, 'index.html');
+
+function sendSpa(res) {
+    res.sendFile(frontendIndex);
+}
+
 app.get('/', (req, res) => {
+    if (fs.existsSync(frontendIndex)) {
+        return sendSpa(res);
+    }
     res.json({
         status: 200,
         name: "Bug-feed API",
@@ -38,10 +48,20 @@ app.get('/', (req, res) => {
             "/api/feeds/cve",
             "/api/feeds/news",
             "/api/feeds/tips",
+            "/api/blog",
+            "/api/blog/:slug",
             "/api/feeds/metrics/todays",
             "/api/feeds/metrics/saved"
         ]
     });
+});
+
+// Client routes such as /blog and /blog/:slug load the SPA shell.
+app.get(/^(?!\/api\/).+/, (req, res, next) => {
+    if (fs.existsSync(frontendIndex)) {
+        return sendSpa(res);
+    }
+    next();
 });
 
 const PORT = process.env.PORT || config.port || 9600;
