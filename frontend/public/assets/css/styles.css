@@ -2,7 +2,7 @@
    Bug-feed Cyber Security Intelligence - Modern Design System
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
   /* Default Cyber Dark Palette */
@@ -402,4 +402,256 @@ body.light .app-navbar {
   background: rgba(245, 158, 11, 0.15);
   border-color: rgba(245, 158, 11, 0.4);
   color: #fbbf24;
+}
+
+.search-wrapper {
+  max-width: 500px;
+}
+
+.text-emphasis {
+  color: var(--text-primary) !important;
+}
+
+button.stat-box-btn {
+  display: block;
+  width: 100%;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+}
+
+.ingest-bar {
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border-left: 4px solid var(--accent-cyan);
+}
+
+body.light .hero-banner {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(241, 245, 249, 0.98) 100%) !important;
+}
+
+body.light .ingest-bar {
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0.1) 0%, rgba(255, 255, 255, 0.92) 100%);
+}
+
+.nav-cyber-tabs {
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -48px;
+  z-index: 10000;
+  background: var(--accent-cyan);
+  color: #041018 !important;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+.blog-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.blog-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.blog-card-link {
+  display: block;
+  padding: 1.1rem 1.2rem 1.15rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.blog-card-link:hover,
+.blog-card-link:hover h2 {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-hover);
+}
+
+.blog-card-link:hover p {
+  color: var(--text-secondary) !important;
+}
+
+.blog-card time,
+.blog-article time {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--accent-cyan);
+}
+
+.blog-card h2 {
+  margin: 0.4rem 0 0.35rem;
+  font-size: 1.12rem;
+  line-height: 1.75;
+  font-weight: 700;
+  font-family: "IBM Plex Sans Arabic", "Noto Naskh Arabic", var(--font-sans);
+}
+
+.blog-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  font-family: "IBM Plex Sans Arabic", "Noto Naskh Arabic", var(--font-sans);
+}
+
+.blog-cves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.blog-article {
+  max-width: 860px;
+  margin: 0 auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.3rem 1.6rem;
+}
+
+.blog-back {
+  display: inline-flex;
+  margin-bottom: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.blog-kicker {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 1.2px;
+  color: var(--accent-cyan);
+}
+
+.blog-article h1 {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  line-height: 1.7;
+  font-weight: 700;
+  font-family: "IBM Plex Sans Arabic", "Noto Naskh Arabic", var(--font-sans);
+}
+
+.blog-cves-post {
+  margin: 0.9rem 0 0.2rem;
+}
+
+.blog-body {
+  margin-top: 1.1rem;
+  font-family: "IBM Plex Sans Arabic", "Noto Naskh Arabic", var(--font-sans);
+  font-size: 1.05rem;
+  line-height: 1.9;
+  color: var(--text-primary);
+}
+
+.blog-body p {
+  margin: 0 0 0.8rem;
+}
+
+.blog-body ul {
+  margin: 0 0 0.9rem;
+  padding-inline-start: 1.3rem;
+}
+
+.blog-body li {
+  margin: 0.2rem 0;
+}
+
+.blog-body hr {
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  margin: 1.15rem 0;
+}
+
+.blog-body a,
+.blog-body code,
+.blog-body .cve-id {
+  unicode-bidi: isolate;
+  direction: ltr;
+}
+
+.blog-body code {
+  font-family: var(--font-mono);
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.88em;
+}
+
+.blog-mark {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .search-wrapper {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .app-navbar {
+    padding: 0.75rem 0.9rem !important;
+  }
+
+  .cyber-tab-btn {
+    padding: 0.45rem 0.72rem;
+    font-size: 0.8rem;
+  }
+
+  .stat-number {
+    font-size: 1.55rem;
+  }
+
+  .hero-title {
+    font-size: 1.45rem !important;
+  }
+
+  .blog-article {
+    padding: 1.05rem 0.9rem 1.2rem;
+  }
+
+  .clock-card {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

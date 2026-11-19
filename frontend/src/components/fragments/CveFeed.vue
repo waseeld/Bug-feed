@@ -76,7 +76,7 @@
     <!-- Status Bar with Range & Pagination Summary -->
     <div v-if="!loading && filteredItems.length > 0" class="d-flex justify-content-between align-items-center mb-3 px-3 py-2 rounded-2 flex-wrap gap-2" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); font-family: var(--font-mono); font-size: 0.82rem;">
       <div class="text-secondary">
-        Showing <strong class="text-info">{{ itemRangeStart.toLocaleString() }} – {{ itemRangeEnd.toLocaleString() }}</strong> of <strong class="text-light">{{ filteredItems.length.toLocaleString() }}</strong> CVE records
+        Showing <strong class="text-info">{{ itemRangeStart.toLocaleString() }} – {{ itemRangeEnd.toLocaleString() }}</strong> of <strong class="text-emphasis">{{ filteredItems.length.toLocaleString() }}</strong> CVE records
         <span v-if="searchQuery" class="ms-1 text-warning">(filtered by "{{ searchQuery }}")</span>
       </div>
 
@@ -87,15 +87,17 @@
           :disabled="currentPage <= 1"
           @click="goToPage(currentPage - 1)"
           title="Previous page"
+          aria-label="Previous page"
         >
           &larr; Prev
         </button>
-        <span class="px-2 text-light fw-bold">Page {{ currentPage }} / {{ totalPages }}</span>
+        <span class="px-2 text-emphasis fw-bold">Page {{ currentPage }} / {{ totalPages }}</span>
         <button
           class="btn-pagination-nav"
           :disabled="currentPage >= totalPages"
           @click="goToPage(currentPage + 1)"
           title="Next page"
+          aria-label="Next page"
         >
           Next &rarr;
         </button>
@@ -158,6 +160,8 @@
           v-else
           class="btn-pagination-num"
           :class="{ 'active': p === currentPage }"
+          :aria-label="'Page ' + p"
+          :aria-current="p === currentPage ? 'page' : null"
           @click="goToPage(p)"
         >
           {{ p }}
@@ -209,7 +213,9 @@ export default {
       loading: false,
       subFilter: 'all',
       currentPage: 1,
-      pageSize: 50
+      pageSize: 50,
+      pocCount: 0,
+      advisoryCount: 0
     };
   },
   computed: {
@@ -217,10 +223,10 @@ export default {
       return this.items.length.toLocaleString();
     },
     pocsCountFormatted() {
-      return this.items.filter(i => (i.source || '').toLowerCase().includes('poc')).length.toLocaleString();
+      return this.pocCount.toLocaleString();
     },
     advisoriesCountFormatted() {
-      return this.items.filter(i => !(i.source || '').toLowerCase().includes('poc')).length.toLocaleString();
+      return this.advisoryCount.toLocaleString();
     },
     filteredItems() {
       let result = this.items;
@@ -297,7 +303,8 @@ export default {
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
-        window.scrollTo({ top: 180, behavior: 'smooth' });
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 180, behavior: reduceMotion ? 'auto' : 'smooth' });
       }
     },
     async fetchData() {
@@ -307,6 +314,12 @@ export default {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           this.items = json.data;
+          let pocs = 0;
+          this.items.forEach((item) => {
+            if ((item.source || '').toLowerCase().includes('poc')) pocs += 1;
+          });
+          this.pocCount = pocs;
+          this.advisoryCount = this.items.length - pocs;
           this.$emit('loaded', { type: 'cve', count: this.items.length });
         }
       } catch (err) {

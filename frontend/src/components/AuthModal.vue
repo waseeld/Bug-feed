@@ -1,6 +1,11 @@
 <template>
   <div class="auth-overlay">
-    <div class="auth-card p-4 p-md-5 rounded-4 shadow-lg position-relative">
+    <div
+      class="auth-card p-4 p-md-5 rounded-4 shadow-lg position-relative"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-title"
+    >
       <!-- Glow effect -->
       <div class="auth-glow"></div>
 
@@ -19,7 +24,7 @@
           {{ mode === 'setup' ? 'INITIAL SYSTEM SETUP' : 'AUTHENTICATION REQUIRED' }}
         </span>
 
-        <h3 class="auth-title mt-2 mb-1 fw-bold">
+        <h3 id="auth-title" class="auth-title mt-2 mb-1 fw-bold">
           {{ mode === 'setup' ? 'Create Admin Account' : 'Access Gateway' }}
         </h3>
         <p class="text-secondary small mb-0" style="font-family: var(--font-mono);">
@@ -42,11 +47,12 @@
       <form @submit.prevent="handleSubmit" class="position-relative" style="z-index: 2;">
         <!-- Username -->
         <div class="mb-3">
-          <label class="form-label text-muted small fw-semibold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+          <label for="auth-username" class="form-label text-muted small fw-semibold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
             Username
           </label>
           <div class="input-group-cyber">
             <input
+              id="auth-username"
               type="text"
               v-model.trim="username"
               class="form-control form-control-cyber"
@@ -60,17 +66,18 @@
 
         <!-- Password -->
         <div class="mb-3">
-          <label class="form-label text-muted small fw-semibold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+          <label for="auth-password" class="form-label text-muted small fw-semibold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
             Password
           </label>
           <div class="input-group-cyber">
             <input
+              id="auth-password"
               type="password"
               v-model="password"
               class="form-control form-control-cyber"
               placeholder="••••••••••••"
               required
-              autocomplete="current-password"
+              :autocomplete="mode === 'setup' ? 'new-password' : 'current-password'"
               :disabled="loading"
             />
           </div>
@@ -81,11 +88,12 @@
 
         <!-- Confirm Password (Setup mode only) -->
         <div v-if="mode === 'setup'" class="mb-4">
-          <label class="form-label text-muted small fw-semibold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+          <label for="auth-confirm" class="form-label text-muted small fw-semibold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
             Confirm Password
           </label>
           <div class="input-group-cyber">
             <input
+              id="auth-confirm"
               type="password"
               v-model="confirmPassword"
               class="form-control form-control-cyber"
