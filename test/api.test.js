@@ -90,7 +90,7 @@ async function runApiTests() {
             if (built) {
                 assert.ok(res.text.includes('<div id="app">'));
                 assert.strictEqual(res.headers.get('cache-control'), 'no-cache');
-                const deep = await request('/blog/2026-11-19-1400');
+                const deep = await request('/blog/2026-11-19');
                 assert.ok(deep.text.includes('<div id="app">'), 'Client routes load the SPA shell');
             } else {
                 assert.ok(Array.isArray(res.data.endpoints));
@@ -242,8 +242,12 @@ async function runApiTests() {
 
         await it('blog list, single post and missing post', async () => {
             const list = await request('/api/blog', { token });
-            assert.ok(list.data.count >= 22);
-            const post = await request('/api/blog/2026-11-19-1400', { token });
+            const files = fs.readdirSync(path.join(__dirname, '..', 'posts'))
+                .filter((name) => /^\d{4}-\d{2}-\d{2}(?:-\d{4})?\.md$/.test(name));
+            assert.strictEqual(list.data.count, files.length);
+            assert.ok(list.data.count >= 1);
+            const post = await request('/api/blog/2026-11-19', { token });
+            assert.strictEqual(post.status, 200);
             assert.ok(post.data.data.html.includes('CVE-2026-120868'));
             const missing = await request('/api/blog/..%2Fpackage', { token });
             assert.strictEqual(missing.status, 404);
