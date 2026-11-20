@@ -53,16 +53,16 @@
 
       <div class="d-flex align-items-center gap-2">
         <!-- Page size selector -->
-        <div class="d-flex align-items-center gap-1 text-secondary small" style="font-family: var(--font-mono);">
+        <label class="d-flex align-items-center gap-1 text-secondary small mb-0" style="font-family: var(--font-mono);">
           <span>Per page:</span>
-          <select v-model.number="pageSize" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: 75px; font-size: 0.8rem;" @change="currentPage = 1">
+          <select v-model.number="pageSize" class="form-select form-select-sm themed-select" style="width: 75px; font-size: 0.8rem;">
             <option :value="30">30</option>
             <option :value="50">50</option>
             <option :value="100">100</option>
           </select>
-        </div>
+        </label>
 
-        <button class="btn-cyber-outline d-flex align-items-center gap-1" @click="fetchData" :disabled="loading">
+        <button type="button" class="btn-cyber-outline d-flex align-items-center gap-1" @click="fetchData" :disabled="loading">
           <span v-if="loading" class="spinner-border spinner-border-sm" role="status"></span>
           <svg v-else width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
             <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
@@ -74,9 +74,9 @@
     </div>
 
     <!-- Status Bar with Range & Pagination Summary -->
-    <div v-if="!loading && filteredItems.length > 0" class="d-flex justify-content-between align-items-center mb-3 px-3 py-2 rounded-2 flex-wrap gap-2" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); font-family: var(--font-mono); font-size: 0.82rem;">
+    <div v-if="total > 0" class="d-flex justify-content-between align-items-center mb-3 px-3 py-2 rounded-2 flex-wrap gap-2" style="background: var(--bg-surface); border: 1px solid var(--border-color); font-family: var(--font-mono); font-size: 0.82rem;" aria-live="polite">
       <div class="text-secondary">
-        Showing <strong class="text-info">{{ itemRangeStart.toLocaleString() }} – {{ itemRangeEnd.toLocaleString() }}</strong> of <strong class="text-light">{{ filteredItems.length.toLocaleString() }}</strong> CVE records
+        Showing <strong class="text-info">{{ itemRangeStart.toLocaleString() }} – {{ itemRangeEnd.toLocaleString() }}</strong> of <strong class="text-emphasis">{{ total.toLocaleString() }}</strong> CVE records
         <span v-if="searchQuery" class="ms-1 text-warning">(filtered by "{{ searchQuery }}")</span>
       </div>
 
@@ -87,38 +87,46 @@
           :disabled="currentPage <= 1"
           @click="goToPage(currentPage - 1)"
           title="Previous page"
+          aria-label="Previous page"
         >
           &larr; Prev
         </button>
-        <span class="px-2 text-light fw-bold">Page {{ currentPage }} / {{ totalPages }}</span>
+        <span class="px-2 text-emphasis fw-bold">Page {{ currentPage }} / {{ totalPages }}</span>
         <button
           class="btn-pagination-nav"
           :disabled="currentPage >= totalPages"
           @click="goToPage(currentPage + 1)"
           title="Next page"
+          aria-label="Next page"
         >
           Next &rarr;
         </button>
       </div>
     </div>
 
-    <!-- Loading indicator -->
-    <div v-if="loading" class="text-center py-5">
+    <!-- Loading indicator (first load only; later pages dim the current list instead) -->
+    <div v-if="loading && !items.length" class="text-center py-5">
       <div class="spinner-border text-warning" role="status">
         <span class="visually-hidden">Loading CVEs...</span>
       </div>
       <p class="mt-3 text-secondary" style="font-family: var(--font-mono); font-size: 0.88rem;">
-        STREAMING COMPLETE CVE &amp; POC INTELLIGENCE ARCHIVE...
+        Loading CVEs and PoCs…
       </p>
     </div>
 
+    <!-- Error state -->
+    <div v-else-if="error && !items.length" class="stat-box text-center py-5" role="alert">
+      <p class="text-danger mb-3">{{ error }}</p>
+      <button type="button" class="btn-cyber-outline" @click="fetchData">Try again</button>
+    </div>
+
     <!-- Empty state -->
-    <div v-else-if="filteredItems.length === 0" class="text-center py-5">
+    <div v-else-if="total === 0" class="text-center py-5">
       <p class="text-muted">No CVEs match your query.</p>
     </div>
 
     <!-- Feed list (Paginated) -->
-    <div v-else class="row g-2">
+    <div v-else class="row g-2 cve-list" :class="{ 'is-loading': loading }" :aria-busy="loading">
       <div
         v-for="item in paginatedItems"
         :key="item.id"
@@ -133,7 +141,7 @@
     </div>
 
     <!-- Bottom Full Pagination Navigation -->
-    <div v-if="!loading && totalPages > 1" class="d-flex justify-content-center align-items-center gap-1 my-4 flex-wrap">
+    <nav v-if="totalPages > 1" class="d-flex justify-content-center align-items-center gap-1 my-4 flex-wrap" aria-label="CVE pages">
       <button
         class="btn-pagination-nav"
         :disabled="currentPage === 1"
@@ -158,6 +166,8 @@
           v-else
           class="btn-pagination-num"
           :class="{ 'active': p === currentPage }"
+          :aria-label="'Page ' + p"
+          :aria-current="p === currentPage ? 'page' : null"
           @click="goToPage(p)"
         >
           {{ p }}
@@ -180,7 +190,7 @@
       >
         Last &raquo;
       </button>
-    </div>
+    </nav>
   </div>
 </template>
 
@@ -205,55 +215,39 @@ export default {
   emits: ['toggle-save', 'loaded'],
   data() {
     return {
+      // Only the current page is held in memory; the server filters and pages (~12k CVEs in total).
       items: [],
+      total: 0,
+      totalPages: 1,
+      counts: { all: 0, pocs: 0, advisories: 0 },
       loading: false,
+      error: '',
       subFilter: 'all',
       currentPage: 1,
-      pageSize: 50
+      pageSize: 50,
+      searchTimer: null,
+      controller: null
     };
   },
   computed: {
     totalCountFormatted() {
-      return this.items.length.toLocaleString();
+      return this.counts.all.toLocaleString();
     },
     pocsCountFormatted() {
-      return this.items.filter(i => (i.source || '').toLowerCase().includes('poc')).length.toLocaleString();
+      return this.counts.pocs.toLocaleString();
     },
     advisoriesCountFormatted() {
-      return this.items.filter(i => !(i.source || '').toLowerCase().includes('poc')).length.toLocaleString();
-    },
-    filteredItems() {
-      let result = this.items;
-      if (this.subFilter === 'pocs') {
-        result = result.filter(i => (i.source || '').toLowerCase().includes('poc'));
-      } else if (this.subFilter === 'circl') {
-        result = result.filter(i => !(i.source || '').toLowerCase().includes('poc'));
-      }
-
-      if (this.searchQuery && this.searchQuery.trim()) {
-        const q = this.searchQuery.toLowerCase().trim();
-        result = result.filter(i =>
-          (i.title && i.title.toLowerCase().includes(q)) ||
-          (i.cve_id && i.cve_id.toLowerCase().includes(q)) ||
-          (i.tags && i.tags.some(t => t.toLowerCase().includes(q))) ||
-          (i.source && i.source.toLowerCase().includes(q))
-        );
-      }
-      return result;
-    },
-    totalPages() {
-      return Math.ceil(this.filteredItems.length / this.pageSize) || 1;
+      return this.counts.advisories.toLocaleString();
     },
     itemRangeStart() {
-      if (this.filteredItems.length === 0) return 0;
+      if (this.total === 0) return 0;
       return (this.currentPage - 1) * this.pageSize + 1;
     },
     itemRangeEnd() {
-      return Math.min(this.currentPage * this.pageSize, this.filteredItems.length);
+      return Math.min(this.currentPage * this.pageSize, this.total);
     },
     paginatedItems() {
-      const start = (this.currentPage - 1) * this.pageSize;
-      return this.filteredItems.slice(start, start + this.pageSize);
+      return this.items;
     },
     visiblePages() {
       const total = this.totalPages;
@@ -280,39 +274,76 @@ export default {
   },
   watch: {
     searchQuery() {
-      this.currentPage = 1;
+      // Wait for the user to stop typing before asking the server.
+      clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => {
+        this.currentPage = 1;
+        this.fetchData();
+      }, 300);
     },
-    subFilter() {
+    pageSize() {
       this.currentPage = 1;
+      this.fetchData();
     }
   },
   mounted() {
     this.fetchData();
   },
+  beforeUnmount() {
+    clearTimeout(this.searchTimer);
+    if (this.controller) this.controller.abort();
+  },
   methods: {
     setSubFilter(val) {
+      if (this.subFilter === val) return;
       this.subFilter = val;
       this.currentPage = 1;
+      this.fetchData();
     },
     goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
+      if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
         this.currentPage = page;
-        window.scrollTo({ top: 180, behavior: 'smooth' });
+        this.fetchData();
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 180, behavior: reduceMotion ? 'auto' : 'smooth' });
       }
     },
     async fetchData() {
+      // Drop any request still in flight so a slow old page can't overwrite a newer one.
+      if (this.controller) this.controller.abort();
+      const controller = new AbortController();
+      this.controller = controller;
+
+      const filter = { all: 'all', pocs: 'pocs', circl: 'advisories' }[this.subFilter] || 'all';
+      const params = new URLSearchParams({
+        page: String(this.currentPage),
+        page_size: String(this.pageSize),
+        filter
+      });
+      const q = (this.searchQuery || '').trim();
+      if (q) params.set('q', q);
+
       this.loading = true;
+      this.error = '';
       try {
-        const res = await fetch('/api/feeds/cve');
+        const res = await fetch(`/api/feeds/cve?${params}`, { signal: controller.signal });
         const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.items = json.data;
-          this.$emit('loaded', { type: 'cve', count: this.items.length });
-        }
+        if (!res.ok) throw new Error(json.error || `Server returned ${res.status}`);
+        this.items = Array.isArray(json.data) ? json.data : [];
+        this.total = json.total || 0;
+        this.totalPages = json.pages || 1;
+        this.currentPage = json.page || 1;
+        if (json.counts) this.counts = json.counts;
+        this.$emit('loaded', { type: 'cve', count: this.counts.all });
       } catch (err) {
+        if (err.name === 'AbortError') return;
         console.error('Failed to load CVE feed:', err);
+        this.error = 'Could not load CVEs. Check that the server is running and try again.';
       } finally {
-        this.loading = false;
+        if (this.controller === controller) {
+          this.loading = false;
+          this.controller = null;
+        }
       }
     },
     isSaved(id) {
@@ -371,5 +402,17 @@ export default {
   color: #020817;
   border-color: var(--accent-cyan);
   font-weight: 700;
+}
+.cve-list {
+  transition: opacity 0.15s ease;
+}
+.cve-list.is-loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.themed-select {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 </style>

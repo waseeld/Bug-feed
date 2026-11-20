@@ -11,7 +11,7 @@ const getHackerOneFeed = require('./feed/hackerone');
 const getPentesterLandFeed = require('./feed/pentesterland');
 const getCveFeed = require('./feed/cve');
 const getNewsFeed = require('./feed/news');
-const { getTweetsFeed } = require('./feed/tweets');
+const community = require('./feed/tweets');
 
 class IngestionWorker {
     constructor() {
@@ -26,19 +26,23 @@ class IngestionWorker {
     }
 
     /**
-     * Wrap an async fetcher with a strict timeout to prevent hung requests.
+     * Run a fetcher with a timeout. Never throws.
+     * @returns {Promise<{ items: Array, error: string|null }>}
      */
-    async fetchWithTimeout(fetchFn, timeoutMs = 25000, fallback = []) {
+    async fetchWithTimeout(fetchFn, timeoutMs = 25000) {
         let timer;
         const timeoutPromise = new Promise((_, reject) => {
             timer = setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
         });
         try {
             const result = await Promise.race([fetchFn(), timeoutPromise]);
-            return Array.isArray(result) ? result : fallback;
+            if (!Array.isArray(result)) {
+                return { items: [], error: 'Source returned no list' };
+            }
+            return { items: result, error: null };
         } catch (err) {
             console.error('[Worker] Source fetch warning:', err.message);
-            return fallback;
+            return { items: [], error: err.message };
         } finally {
             clearTimeout(timer);
         }
@@ -60,9 +64,7 @@ class IngestionWorker {
         this.isRunning = true;
         this.lastRunStart = new Date().toISOString();
         const startTime = Date.now();
-        console.log(`\n======================================================`);
-        console.log(`[Worker] Starting Scheduled Data Ingestion Cycle: ${this.lastRunStart}`);
-        console.log(`======================================================`);
+        console.log(`[Worker] Starting data ingestion cycle: ${this.lastRunStart}`);
 
         const cycleResults = {
             disclosures: { fetched: 0, added: 0, skipped: 0, error: null },
@@ -72,45 +74,34 @@ class IngestionWorker {
         };
 
         try {
-            // Fetch all feeds concurrently with timeouts
-            const [h1Res, plRes, cveRes, newsRes, tipsRes] = await Promise.allSettled([
+            const [h1, pl, cve, news, tips] = await Promise.all([
                 this.fetchWithTimeout(() => getHackerOneFeed(50)),
                 this.fetchWithTimeout(() => getPentesterLandFeed(60)),
                 this.fetchWithTimeout(() => getCveFeed(Infinity), 45000),
                 this.fetchWithTimeout(() => getNewsFeed(50)),
-                this.fetchWithTimeout(() => getTweetsFeed({ limit: 60 }))
+                // Only live Mastodon/Bluesky posts are stored; the X archive is served from its data file.
+                this.fetchWithTimeout(() => community.getTweetsFeed({ limit: 200, liveOnly: true }))
             ]);
 
-            // 1. Process Disclosures (HackerOne + PentesterLand)
-            const h1Items = h1Res.status === 'fulfilled' ? h1Res.value : [];
-            const plItems = plRes.status === 'fulfilled' ? plRes.value : [];
-            const mergedDisclosures = [...h1Items, ...plItems];
-            cycleResults.disclosures.fetched = mergedDisclosures.length;
-            const dRes = storage.ingest('disclosures', mergedDisclosures);
-            cycleResults.disclosures.added = dRes.added;
-            cycleResults.disclosures.skipped = dRes.skipped;
+            const batches = {
+                disclosures: { items: [...h1.items, ...pl.items], error: [h1.error && `HackerOne: ${h1.error}`, pl.error && `PentesterLand: ${pl.error}`].filter(Boolean).join('; ') || null },
+                cve,
+                news,
+                tips
+            };
 
-            // 2. Process CVEs & PoCs
-            const cveItems = cveRes.status === 'fulfilled' ? cveRes.value : [];
-            cycleResults.cve.fetched = cveItems.length;
-            const cRes = storage.ingest('cve', cveItems);
-            cycleResults.cve.added = cRes.added;
-            cycleResults.cve.skipped = cRes.skipped;
+            for (const [category, batch] of Object.entries(batches)) {
+                const res = storage.ingest(category, batch.items, { persist: false });
+                cycleResults[category] = {
+                    fetched: batch.items.length,
+                    added: res.added,
+                    skipped: res.skipped,
+                    error: batch.error
+                };
+            }
 
-            // 3. Process Security News
-            const newsItems = newsRes.status === 'fulfilled' ? newsRes.value : [];
-            cycleResults.news.fetched = newsItems.length;
-            const nRes = storage.ingest('news', newsItems);
-            cycleResults.news.added = nRes.added;
-            cycleResults.news.skipped = nRes.skipped;
-
-            // 4. Process Twitter / X Security Intel & Tips
-            const tipsItems = tipsRes.status === 'fulfilled' ? tipsRes.value : [];
-            cycleResults.tips.fetched = tipsItems.length;
-            const tRes = storage.ingest('tips', tipsItems);
-            cycleResults.tips.added = tRes.added;
-            cycleResults.tips.skipped = tRes.skipped;
-
+            // One write of the store and registry per cycle instead of one per category.
+            storage.persist();
         } catch (globalErr) {
             console.error('[Worker] Critical error during ingestion cycle:', globalErr);
         } finally {
@@ -118,54 +109,44 @@ class IngestionWorker {
             this.lastRunDurationMs = Date.now() - startTime;
             this.isRunning = false;
             this.totalRuns++;
-
-            const totalAdded = cycleResults.disclosures.added +
-                               cycleResults.cve.added +
-                               cycleResults.news.added +
-                               cycleResults.tips.added;
-
-            const totalSkipped = cycleResults.disclosures.skipped +
-                                 cycleResults.cve.skipped +
-                                 cycleResults.news.skipped +
-                                 cycleResults.tips.skipped;
-
-            const summary = {
-                id: `sync-${Date.now()}`,
-                started_at: this.lastRunStart,
-                completed_at: this.lastRunEnd,
-                duration_ms: this.lastRunDurationMs,
-                total_added: totalAdded,
-                total_skipped_duplicates: totalSkipped,
-                sources: cycleResults,
-                storage_stats: storage.getStats()
-            };
-
-            this.lastRunResult = summary;
-            storage.saveHistory(summary);
-
-            console.log(`[Worker] Ingestion Cycle Completed in ${(this.lastRunDurationMs / 1000).toFixed(2)}s`);
-            console.log(`[Worker] Summary: +${totalAdded} new items added, ${totalSkipped} duplicates skipped.`);
-            console.log(`[Worker] Total items in database: ${summary.storage_stats.total_items} across 4 categories.`);
-            console.log(`======================================================\n`);
-
-            return summary;
         }
+
+        const totalAdded = Object.values(cycleResults).reduce((n, r) => n + r.added, 0);
+        const totalSkipped = Object.values(cycleResults).reduce((n, r) => n + r.skipped, 0);
+        const failedSources = Object.entries(cycleResults).filter(([, r]) => r.error).map(([name]) => name);
+
+        const summary = {
+            id: `sync-${Date.now()}`,
+            started_at: this.lastRunStart,
+            completed_at: this.lastRunEnd,
+            duration_ms: this.lastRunDurationMs,
+            total_added: totalAdded,
+            total_skipped_duplicates: totalSkipped,
+            failed_sources: failedSources,
+            sources: cycleResults,
+            storage_stats: storage.getStats()
+        };
+
+        this.lastRunResult = summary;
+        storage.saveHistory(summary);
+
+        console.log(`[Worker] Cycle done in ${(this.lastRunDurationMs / 1000).toFixed(2)}s: +${totalAdded} new, ${totalSkipped} duplicates skipped${failedSources.length ? `, failed: ${failedSources.join(', ')}` : ''}.`);
+
+        return summary;
     }
 
     /**
      * Start the automated cron schedule.
-     * @param {number} intervalMinutes - Interval in minutes (e.g. 10 or 15)
+     * @param {number} intervalMinutes - 1 to 59. Values that don't divide 60 restart at the top of each hour.
      */
     startScheduler(intervalMinutes = this.intervalMinutes) {
-        this.intervalMinutes = intervalMinutes;
+        const mins = Math.max(1, Math.min(59, parseInt(intervalMinutes, 10) || 15));
+        this.intervalMinutes = mins;
         if (this.cronTask) {
             this.cronTask.stop();
         }
 
-        // Validate cron range 1-59
-        const mins = Math.max(1, Math.min(59, intervalMinutes));
         const cronExpression = `*/${mins} * * * *`;
-
         console.log(`[Worker] Initializing cron scheduler: "${cronExpression}" (Every ${mins} minutes)`);
 
         this.cronTask = cron.schedule(cronExpression, () => {
@@ -216,7 +197,7 @@ if (require.main === module) {
         }
     }
 
-    console.log(`[Worker CLI] Starting standalone Bug-feed Ingestion Worker...`);
+    console.log('[Worker CLI] Starting standalone Bug-feed Ingestion Worker...');
     workerInstance.startScheduler(interval);
 
     // Run first cycle immediately on launch

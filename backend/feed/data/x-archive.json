@@ -1,0 +1,390 @@
+[
+  {
+    "id": "tw-vx-1661789069670780934",
+    "handle": "vxunderground",
+    "name": "vx-underground",
+    "title": "A TOX 1.17.6 (current version) RCE 0day is for sale. It would give nerds the ability to pwn literally every ransomware group, and major Threat Actors using it. #0day #infosec #redteam",
+    "url": "https://x.com/vxunderground/status/1661789069670780934",
+    "published_at": "2023-05-25T17:39:23.414Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "#redteam",
+      "@vxunderground"
+    ]
+  },
+  {
+    "id": "tw-vx-1797047998481854512",
+    "handle": "vxunderground",
+    "name": "vx-underground",
+    "title": "A Threat Actor operating under the moniker \"USDoD\" placed a massive database up for sale on Breached titled: \"National Public Data\". High impact leak affecting global records. #infosec #redteam",
+    "url": "https://x.com/vxunderground/status/1797047998481854512",
+    "published_at": "2024-06-01T23:30:05.032Z",
+    "tags": [
+      "#infosec",
+      "#redteam",
+      "@vxunderground"
+    ]
+  },
+  {
+    "id": "tw-vx-1683479796917891075",
+    "handle": "vxunderground",
+    "name": "vx-underground",
+    "title": "ALPHV ransomware group now provides an API for their ransomware leak site. Searchable endpoint index for active extortion cases. #infosec #redteam",
+    "url": "https://x.com/vxunderground/status/1683479796917891075",
+    "published_at": "2023-07-24T14:10:35.784Z",
+    "tags": [
+      "#infosec",
+      "#redteam",
+      "@vxunderground"
+    ]
+  },
+  {
+    "id": "tw-orange-1518970259868626944",
+    "handle": "orange_8361",
+    "name": "Orange Tsai",
+    "title": "Unsafe .Net Deserialization in Windows Event Viewer! Confirmed with MSRC that this could still be another fun LOLbas or Defender Bypass. #0day #infosec #websec",
+    "url": "https://x.com/orange_8361/status/1518970259868626944",
+    "published_at": "2022-04-26T15:08:25.712Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "#websec",
+      "@orange_8361"
+    ]
+  },
+  {
+    "id": "tw-samwcyo-1597695281881296897",
+    "handle": "samwcyo",
+    "name": "Sam Curry",
+    "title": "We recently found a vulnerability affecting Hyundai and Genesis vehicles where we could remotely control the locks, engine, horn, headlights, and trunk of vehicles made after 2012. #0day #infosec #websec",
+    "url": "https://x.com/samwcyo/status/1597695281881296897",
+    "published_at": "2022-11-29T20:53:33.600Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "#websec",
+      "@samwcyo"
+    ]
+  },
+  {
+    "id": "tw-albinowax-1587800171051503617",
+    "handle": "albinowax",
+    "name": "James Kettle",
+    "title": "The vaunted 'X-Custom-IP-Authorization' header won't work on real websites because we made it up for a @WebSecAcademy lab as an example of a non-standard custom header name. Check real reverse proxy ACLs instead! #websec #bugbountytips",
+    "url": "https://x.com/albinowax/status/1587800171051503617",
+    "published_at": "2022-11-02T13:33:55.336Z",
+    "tags": [
+      "#websec",
+      "#bugbountytips",
+      "@albinowax"
+    ]
+  },
+  {
+    "id": "tw-jhaddix-1323396377997553664",
+    "handle": "Jhaddix",
+    "name": "Jason Haddix",
+    "title": "Collecting a large set of secrets regex for bug bounty recon. Trufflehog has some great ones, what else are you using in automated pipelines? #bugbounty #recon #bugbountytips",
+    "url": "https://x.com/Jhaddix/status/1323396377997553664",
+    "published_at": "2020-11-02T22:47:38.687Z",
+    "tags": [
+      "#bugbounty",
+      "#recon",
+      "#bugbountytips",
+      "@Jhaddix"
+    ]
+  },
+  {
+    "id": "tw-hakluke-1665523951429201921",
+    "handle": "hakluke",
+    "name": "Luke Stephens",
+    "title": "How to achieve enterprise-grade attack-surface monitoring with open source software! Automated continuous asset discovery workflow. #hacking #ASM #opensource #recon",
+    "url": "https://x.com/hakluke/status/1665523951429201921",
+    "published_at": "2023-06-05T01:00:28.616Z",
+    "tags": [
+      "#recon",
+      "#bugbountytips",
+      "#infosec",
+      "@hakluke"
+    ]
+  },
+  {
+    "id": "tw-hakluke-1678752170307383298",
+    "handle": "hakluke",
+    "name": "Luke Stephens",
+    "title": "Sensitive backup discovery ideas for your wordlists: config.php.old, config.php.bak, config.php.tar.gz. Always fuzz for archived source trees! #bugbountytips #recon",
+    "url": "https://x.com/hakluke/status/1678752170307383298",
+    "published_at": "2023-07-11T13:04:41.765Z",
+    "tags": [
+      "#bugbountytips",
+      "#recon",
+      "@hakluke"
+    ]
+  },
+  {
+    "id": "tw-naglinagli-1382082473744564226",
+    "handle": "naglinagli",
+    "name": "Gal Nagli",
+    "title": "XSS payload to keep on your notes: <script>alert(1)</script> -> nginx block, \"><img src=x onerror=alert(1)> -> Wordfence block, but SVG animation vectors bypass WAF filters cleanly! #bugbountytips #websec",
+    "url": "https://x.com/naglinagli/status/1382082473744564226",
+    "published_at": "2021-04-13T21:25:14.248Z",
+    "tags": [
+      "#bugbountytips",
+      "#websec",
+      "@naglinagli"
+    ]
+  },
+  {
+    "id": "tw-naglinagli-1468155313182416899",
+    "handle": "naglinagli",
+    "name": "Gal Nagli",
+    "title": "The latest Grafana unpatched 0 Day LFI is now being actively exploited, it affects Grafana 8.0+. Vulnerable companies should revoke internal secrets immediately. #0day #infosec",
+    "url": "https://x.com/naglinagli/status/1468155313182416899",
+    "published_at": "2021-12-07T09:47:58.326Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "@naglinagli"
+    ]
+  },
+  {
+    "id": "tw-naglinagli-1374332024920608774",
+    "handle": "naglinagli",
+    "name": "Gal Nagli",
+    "title": "Ever find a phpMyAdmin login portal and default creds wont work? Try to access the /phpmyadmin/setup/ endpoint and you might be presented with authenticated setup! #recon #websec #bugbountytips",
+    "url": "https://x.com/naglinagli/status/1374332024920608774",
+    "published_at": "2021-03-23T12:07:43.252Z",
+    "tags": [
+      "#recon",
+      "#websec",
+      "#bugbountytips",
+      "@naglinagli"
+    ]
+  },
+  {
+    "id": "tw-nahamsec-1177672652011343873",
+    "handle": "nahamsec",
+    "name": "Ben Sadeghipour",
+    "title": "What are some endpoints that make you excited when it pops up while performing a directory brute force? Here are some of mine: /api/proxy /swagger-ui /graphql /actuator #bugbountytips #recon #apihacking",
+    "url": "https://x.com/NahamSec/status/1177672652011343873",
+    "published_at": "2019-09-27T19:53:34.996Z",
+    "tags": [
+      "#bugbountytips",
+      "#recon",
+      "#apihacking",
+      "@nahamsec"
+    ]
+  },
+  {
+    "id": "tw-nahamsec-1694388639994675568",
+    "handle": "nahamsec",
+    "name": "Ben Sadeghipour",
+    "title": "Tips on API reconnaissance: publicly accessible swagger UI and open debug docs often lead to unauthorized internal endpoints and mass PII exposure. #apihacking #bugbountytips #infosec",
+    "url": "https://x.com/nahamsec/status/1694388639994675568",
+    "published_at": "2023-08-23T16:38:26.650Z",
+    "tags": [
+      "#apihacking",
+      "#bugbountytips",
+      "#infosec",
+      "@nahamsec"
+    ]
+  },
+  {
+    "id": "tw-fransrosen-1349397387920502786",
+    "handle": "fransrosen",
+    "name": "Frans Rosén",
+    "title": "I tend to call them SSRF canaries, when chaining a blind SSRF to another SSRF internally which makes an additional call externally, or by an app-specific open redir or blind XXE. Confluence, Artifactory, Jenkins have great examples. #websec #bugbountytips",
+    "url": "https://x.com/fransrosen/status/1349397387920502786",
+    "published_at": "2021-01-13T16:46:22.528Z",
+    "tags": [
+      "#websec",
+      "#bugbountytips",
+      "@fransrosen"
+    ]
+  },
+  {
+    "id": "tw-shubs-1748133949485019467",
+    "handle": "infosec_au",
+    "name": "Shubham Shah",
+    "title": "At @assetnote, we focused on building a comprehensive set of exploits for the recent Ivanti Pulse Connect Secure vulnerabilities (CVE-2023-46805 & CVE-2024-21887). #0day #infosec",
+    "url": "https://x.com/infosec_au/status/1748133949485019467",
+    "published_at": "2024-01-19T00:03:06.972Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "@infosec_au"
+    ]
+  },
+  {
+    "id": "tw-projectdiscovery-1625246290602000385",
+    "handle": "pdiscoveryio",
+    "name": "ProjectDiscovery",
+    "title": "dnsx v1.1.2 is published with new features: Placeholder-based DNS brute force & ASN-based input/output support. Streamline your reconnaissance pipeline! #hackwithautomation #dns #recon #bugbounty",
+    "url": "https://x.com/pdiscoveryio/status/1625246290602000385",
+    "published_at": "2023-02-13T21:31:25.952Z",
+    "tags": [
+      "#recon",
+      "#bugbounty",
+      "#dns",
+      "@pdiscoveryio"
+    ]
+  },
+  {
+    "id": "tw-taviso-1508438583484452866",
+    "handle": "taviso",
+    "name": "Tavis Ormandy",
+    "title": "Yikes, we now have a working reproducer for Z_DEFAULT_STRATEGY memory corruption bug in zlib. Advisory coordinated. #0day #infosec",
+    "url": "https://x.com/taviso/status/1508438583484452866",
+    "published_at": "2022-03-28T13:39:18.393Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "@taviso"
+    ]
+  },
+  {
+    "id": "tw-taviso-1062828228060966912",
+    "handle": "taviso",
+    "name": "Tavis Ormandy",
+    "title": "Application whitelisting and applying updates promptly solves real security problems. Switching to hardened OS environments is even better. #infosec",
+    "url": "https://x.com/taviso/status/1062828228060966912",
+    "published_at": "2018-11-14T22:02:50.620Z",
+    "tags": [
+      "#infosec",
+      "@taviso"
+    ]
+  },
+  {
+    "id": "tw-gareth-1597603004013809664",
+    "handle": "garethheyes",
+    "name": "Gareth Heyes",
+    "title": "It's possible to hijack getElementById() without scripts or events using DOM clobbering: <div id=\"x\">try harder</div>. #websec #bugbountytips",
+    "url": "https://x.com/garethheyes/status/1597603004013809664",
+    "published_at": "2022-11-29T14:46:52.842Z",
+    "tags": [
+      "#websec",
+      "#bugbountytips",
+      "@garethheyes"
+    ]
+  },
+  {
+    "id": "tw-liveoverflow-1738520896585785394",
+    "handle": "LiveOverflow",
+    "name": "LiveOverflow",
+    "title": "\"A Vulnerability to Hack The World\" - CVE-2023-4863 The start of a mini series digging into the recent WebP zero-day heap overflow vulnerability. #0day #infosec",
+    "url": "https://x.com/LiveOverflow/status/1738520896585785394",
+    "published_at": "2023-12-23T11:24:16.559Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "@LiveOverflow"
+    ]
+  },
+  {
+    "id": "tw-liveoverflow-1112323055127191552",
+    "handle": "LiveOverflow",
+    "name": "LiveOverflow",
+    "title": "I never thought I would experience a XSS on Google Search. Difficulties of sanitizing complex DOM structures and client-side parsers. #websec #bugbountytips",
+    "url": "https://x.com/LiveOverflow/status/1112323055127191552",
+    "published_at": "2019-03-31T11:57:36.962Z",
+    "tags": [
+      "#websec",
+      "#bugbountytips",
+      "@LiveOverflow"
+    ]
+  },
+  {
+    "id": "tw-spaceraccoon-1530902467306606592",
+    "handle": "spaceraccoonsec",
+    "name": "Eugene Lim",
+    "title": "New custom URI to arbitrary command execution just dropped ms-msdt:/id PCWDiagnostic (Follina 0-day). Review diagnostic tools and URI handlers! #0day #infosec #redteam",
+    "url": "https://x.com/spaceraccoonsec/status/1530902467306606592",
+    "published_at": "2022-05-29T13:22:45.655Z",
+    "tags": [
+      "#0day",
+      "#infosec",
+      "#redteam",
+      "@spaceraccoonsec"
+    ]
+  },
+  {
+    "id": "tw-s0md3v-966175714302144514",
+    "handle": "s0md3v",
+    "name": "Somdev Sangwan",
+    "title": "Context breaking XSS payload equipped with some tricks: --><script><svg onload=(confirm)``> SVG animation tags easily bypass naive HTML tag sanitizers. #bugbountytips #websec",
+    "url": "https://x.com/s0md3v/status/966175714302144514",
+    "published_at": "2018-02-21T05:00:15.623Z",
+    "tags": [
+      "#bugbountytips",
+      "#websec",
+      "@s0md3v"
+    ]
+  },
+  {
+    "id": "tw-bbuerhaus-880498767551541248",
+    "handle": "bbuerhaus",
+    "name": "Ben Buerhaus",
+    "title": "Escalating XSS in PhantomJS Image Rendering to SSRF and Local-File Read. Great demonstration of converting client-side bugs into high-severity server compromises. #websec #0day #bugbountytips",
+    "url": "https://x.com/bbuerhaus/status/880498767551541248",
+    "published_at": "2017-06-29T18:50:39.717Z",
+    "tags": [
+      "#websec",
+      "#0day",
+      "#bugbountytips",
+      "@bbuerhaus"
+    ]
+  },
+  {
+    "id": "tw-hacker-1570582547415068672",
+    "handle": "hacker_",
+    "name": "Corben Leo",
+    "title": "Found an internal network share containing powershell scripts with admin user credentials in Thycotic PAM. Extracted secrets for DA, DUO, AWS, GSuite! #recon #redteam #infosec",
+    "url": "https://x.com/hacker_/status/1570582547415068672",
+    "published_at": "2022-09-16T01:17:13.973Z",
+    "tags": [
+      "#recon",
+      "#redteam",
+      "#infosec",
+      "@hacker_"
+    ]
+  },
+  {
+    "id": "tw-insiderphd-1280470587199152128",
+    "handle": "InsiderPhD",
+    "name": "Katie Paxton-Fear",
+    "title": "API endpoint fuzzing: /__swagger__/ and /_swagger_/ are two undocumented paths I have frequently seen exposed in the wild on production systems! #apihacking #bugbountytips",
+    "url": "https://x.com/InsiderPhD/status/1280470587199152128",
+    "published_at": "2020-07-07T11:55:52.638Z",
+    "tags": [
+      "#apihacking",
+      "#bugbountytips",
+      "@InsiderPhD"
+    ]
+  },
+  {
+    "id": "tw-intigriti-1618589709617463297",
+    "handle": "intigriti",
+    "name": "Intigriti",
+    "title": "Can you spot the vulnerability? Show us how you would be able to become the admin in the comments! Community 1337 challenge. #websec #bugbountytips",
+    "url": "https://x.com/intigriti/status/1618589709617463297",
+    "published_at": "2023-01-26T12:40:33.372Z",
+    "tags": [
+      "#websec",
+      "#bugbountytips",
+      "@intigriti"
+    ]
+  },
+  {
+    "id": "tw-todayininfosec-1974552634775531921",
+    "handle": "todayininfosec",
+    "name": "Today in Infosec",
+    "title": "2005: The Samy worm, the first self-propagating cross-site scripting worm, was released onto the mega-popular MySpace by 19-year-old Samy Kamkar. It spread like wildfire. #infosec #0day",
+    "url": "https://x.com/todayininfosec/status/1974552634775531921",
+    "published_at": "2025-10-04T19:10:08.201Z",
+    "tags": [
+      "#infosec",
+      "#0day",
+      "@todayininfosec"
+    ]
+  }
+]

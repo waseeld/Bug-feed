@@ -28,8 +28,9 @@ ENV SYNC_INTERVAL_MINUTES=15
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# Copy backend source, docs, and main entrypoint
+# Copy backend source, blog posts, docs, and main entrypoint
 COPY backend/ ./backend/
+COPY posts/ ./posts/
 COPY docs/ ./docs/
 COPY main.js ./
 

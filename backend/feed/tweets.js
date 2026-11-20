@@ -1,526 +1,503 @@
 /**
- * Twitter / X Intelligence Feed Module for Bug-feed.
- * Expanded database of top security researchers, 0-day hunters, and authentic tweet status links.
+ * Community Intel feed.
+ *
+ * Live posts come from public, keyless APIs:
+ *   - Mastodon: account statuses from each account's own server, hashtag timelines from mastodon.social
+ *   - Bluesky: author feeds from the public AppView (public.api.bsky.app)
+ * X/Twitter has no free read API, so older X posts are served only as a clearly labelled archive
+ * (backend/feed/data/x-archive.json) with their real publication dates.
+ *
+ * Every item carries its real date and only the engagement counts the source actually reports.
  */
 
+const fs = require('fs');
+const path = require('path');
+const { DATA_DIR, atomicWriteJson } = require('../paths');
+const X_ARCHIVE = require('./data/x-archive.json');
+
+const SOURCES_FILE = path.join(DATA_DIR, 'community_sources.json');
+const TAG_INSTANCE = 'mastodon.social';
+const REQUEST_TIMEOUT_MS = 12000;
+const PROFILE_TTL_MS = 6 * 60 * 60 * 1000;
+const USER_AGENT = 'Mozilla/5.0 (compatible; BugFeed/1.0)';
+
 const DEFAULT_ACCOUNTS = [
-    { handle: 'Jhaddix', name: 'Jason Haddix', bio: 'The Bug Hunter\'s Methodology author. Hacker, CISO.', verified: true },
-    { handle: 'albinowax', name: 'James Kettle', bio: 'Director of Research @ PortSwigger. HTTP Desync & Smuggling pioneer.', verified: true },
-    { handle: 'orange_8361', name: 'Orange Tsai', bio: 'Principal Security Researcher @ DEVCORE. ProxyLogon, SSRF, RCE 0-days.', verified: true },
-    { handle: 'tomnomnom', name: 'Tom Hudson', bio: 'Building security tools like httprobe, assetfinder, gf, anew.', verified: true },
-    { handle: 'samwcyo', name: 'Sam Curry', bio: 'Security researcher, web & automotive security vulnerabilities.', verified: true },
-    { handle: 'hakluke', name: 'Luke Stephens', bio: 'Hacker, bug bounty hunter, author of hakrawler and subjack.', verified: true },
-    { handle: 'naglinagli', name: 'Gal Nagli', bio: 'Top bug bounty researcher, recon methodology specialist.', verified: true },
-    { handle: 'vxunderground', name: 'vx-underground', bio: 'The largest collection of malware source code, samples, and papers.', verified: true },
-    { handle: 'nahamsec', name: 'Ben Sadeghipour', bio: 'Bug bounty hunter, educator, content creator & recon master.', verified: true },
-    { handle: 'fransrosen', name: 'Frans Rosén', bio: 'Security advisor, DNS / OAuth / web security vulnerability hunter.', verified: true },
-    { handle: 'shubs', name: 'Shubham Shah', bio: 'CTO @ Assetnote. Recon, attack surface management, Kiterunner.', verified: true },
-    { handle: 'zseano', name: 'Sean (zseano)', bio: 'Creator of BugBountyHunter.com. Veteran web app hacker.', verified: true },
-    { handle: 'stokfredrik', name: 'STÖK', bio: 'Visual creative, bug hunter, host of Bounty Thursdays.', verified: true },
-    { handle: 'projectdiscovery', name: 'ProjectDiscovery', bio: 'Open source security tools: Subfinder, Nuclei, HTTPX, Katana.', verified: true },
-    { handle: 'taviso', name: 'Tavis Ormandy', bio: 'Information Security Researcher @ Google Project Zero.', verified: true },
-    { handle: 'garethheyes', name: 'Gareth Heyes', bio: 'PortSwigger Researcher, XSS & DOM Invader author.', verified: true },
-    { handle: 'dawgyg', name: 'Corben Leo', bio: 'Bug bounty hunter, tooling creator, sublist3r contributor.', verified: true },
-    { handle: 'InsiderPhD', name: 'Katie Paxton-Fear', bio: 'AI security researcher, API hacking educator and author.', verified: true },
-    { handle: 'todayininfosec', name: 'Today in Infosec', bio: 'Chronicles of historic security disclosures and milestones.', verified: true },
-    { handle: 'LiveOverflow', name: 'LiveOverflow', bio: 'Binary exploitation, browser security, CTF reverse engineering.', verified: true },
-    { handle: 'spaceraccoonsec', name: 'Eugene Lim', bio: 'Security researcher, cloud & IAM security, top HackerOne hunter.', verified: true },
-    { handle: 's0md3v', name: 'Somdev Sangwan', bio: 'Creator of Arjun (HTTP parameter discovery), XSStrike, Photon.', verified: true },
-    { handle: 'filedescriptor', name: 'filedescriptor', bio: 'Security researcher @ Cure53. Browser security & DOMPurify contributor.', verified: true },
-    { handle: 'bbuerhaus', name: 'Ben Buerhaus', bio: 'Critical vulnerability hunter, web app security researcher.', verified: true },
-    { handle: 'yaworsk', name: 'Peter Yaworski', bio: 'Author of Real-World Bug Hunting, Web Hacking 101.', verified: true },
-    { handle: 'intigriti', name: 'Intigriti', bio: 'Bug bounty platform, community 1337 security tips & challenges.', verified: true },
-    { handle: 'Hacker0x01', name: 'HackerOne', bio: 'Official HackerOne community, disclosure alerts, bounty news.', verified: true }
+    { platform: 'mastodon', handle: 'briankrebs@infosec.exchange', name: 'Brian Krebs' },
+    { platform: 'mastodon', handle: 'GossiTheDog@cyberplace.social', name: 'Kevin Beaumont' },
+    { platform: 'mastodon', handle: 'malwaretech@infosec.exchange', name: 'Marcus Hutchins' },
+    { platform: 'mastodon', handle: 'albinowax@infosec.exchange', name: 'James Kettle' },
+    { platform: 'mastodon', handle: 'thezdi@infosec.exchange', name: 'Zero Day Initiative' },
+    { platform: 'mastodon', handle: 'projectdiscovery@infosec.exchange', name: 'ProjectDiscovery' },
+    { platform: 'mastodon', handle: 'tomnomnom@infosec.exchange', name: 'TomNomNom' },
+    { platform: 'mastodon', handle: 'mttaggart@infosec.exchange', name: 'Taggart' },
+    { platform: 'bluesky', handle: 'troyhunt.com', name: 'Troy Hunt' },
+    { platform: 'bluesky', handle: 'zackwhittaker.com', name: 'Zack Whittaker' },
+    { platform: 'bluesky', handle: 'campuscodi.risky.biz', name: 'Catalin Cimpanu' }
 ];
 
-const DEFAULT_HASHTAGS = [
-    '#bugbountytips',
-    '#recon',
-    '#0day',
-    '#infosec',
-    '#redteam',
-    '#websec',
-    '#apihacking',
-    '#cloudsecurity'
-];
+const DEFAULT_HASHTAGS = ['#bugbounty', '#bugbountytips', '#threatintel', '#redteam', '#appsec', '#infosec', '#cve'];
 
-const TWEETS_DATABASE = [
-    {
-        id: 'tw-vx-1661789069670780934',
-        author: { handle: 'vxunderground', name: 'vx-underground', verified: true },
-        title: 'A TOX 1.17.6 (current version) RCE 0day is for sale. It would give nerds the ability to pwn literally every ransomware group, and major Threat Actors using it. #0day #infosec #redteam',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/vxunderground/status/1661789069670780934',
-        published_at: '2023-05-25',
-        likes: 1840,
-        retweets: 420,
-        tags: ['#0day', '#infosec', '#redteam', '@vxunderground']
-    },
-    {
-        id: 'tw-vx-1797047998481854512',
-        author: { handle: 'vxunderground', name: 'vx-underground', verified: true },
-        title: 'A Threat Actor operating under the moniker "USDoD" placed a massive database up for sale on Breached titled: "National Public Data". High impact leak affecting global records. #infosec #redteam',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/vxunderground/status/1797047998481854512',
-        published_at: '2024-06-01',
-        likes: 2150,
-        retweets: 680,
-        tags: ['#infosec', '#redteam', '@vxunderground']
-    },
-    {
-        id: 'tw-vx-1683479796917891075',
-        author: { handle: 'vxunderground', name: 'vx-underground', verified: true },
-        title: 'ALPHV ransomware group now provides an API for their ransomware leak site. Searchable endpoint index for active extortion cases. #infosec #redteam',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/vxunderground/status/1683479796917891075',
-        published_at: '2023-07-24',
-        likes: 1540,
-        retweets: 310,
-        tags: ['#infosec', '#redteam', '@vxunderground']
-    },
-    {
-        id: 'tw-orange-1518970259868626944',
-        author: { handle: 'orange_8361', name: 'Orange Tsai', verified: true },
-        title: 'Unsafe .Net Deserialization in Windows Event Viewer! Confirmed with MSRC that this could still be another fun LOLbas or Defender Bypass. #0day #infosec #websec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/orange_8361/status/1518970259868626944',
-        published_at: '2022-04-26',
-        likes: 2450,
-        retweets: 810,
-        tags: ['#0day', '#infosec', '#websec', '@orange_8361']
-    },
-    {
-        id: 'tw-samwcyo-1597695281881296897',
-        author: { handle: 'samwcyo', name: 'Sam Curry', verified: true },
-        title: 'We recently found a vulnerability affecting Hyundai and Genesis vehicles where we could remotely control the locks, engine, horn, headlights, and trunk of vehicles made after 2012. #0day #infosec #websec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/samwcyo/status/1597695281881296897',
-        published_at: '2022-11-29',
-        likes: 3120,
-        retweets: 950,
-        tags: ['#0day', '#infosec', '#websec', '@samwcyo']
-    },
-    {
-        id: 'tw-albinowax-1587800171051503617',
-        author: { handle: 'albinowax', name: 'James Kettle', verified: true },
-        title: 'The vaunted \'X-Custom-IP-Authorization\' header won\'t work on real websites because we made it up for a @WebSecAcademy lab as an example of a non-standard custom header name. Check real reverse proxy ACLs instead! #websec #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/albinowax/status/1587800171051503617',
-        published_at: '2022-11-02',
-        likes: 1290,
-        retweets: 410,
-        tags: ['#websec', '#bugbountytips', '@albinowax']
-    },
-    {
-        id: 'tw-jhaddix-1323396377997553664',
-        author: { handle: 'Jhaddix', name: 'Jason Haddix', verified: true },
-        title: 'Collecting a large set of secrets regex for bug bounty recon. Trufflehog has some great ones, what else are you using in automated pipelines? #bugbounty #recon #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/Jhaddix/status/1323396377997553664',
-        published_at: '2020-11-02',
-        likes: 842,
-        retweets: 189,
-        tags: ['#bugbounty', '#recon', '#bugbountytips', '@Jhaddix']
-    },
-    {
-        id: 'tw-hakluke-1665523951429201921',
-        author: { handle: 'hakluke', name: 'Luke Stephens', verified: true },
-        title: 'How to achieve enterprise-grade attack-surface monitoring with open source software! Automated continuous asset discovery workflow. #hacking #ASM #opensource #recon',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/hakluke/status/1665523951429201921',
-        published_at: '2023-06-04',
-        likes: 780,
-        retweets: 165,
-        tags: ['#recon', '#bugbountytips', '#infosec', '@hakluke']
-    },
-    {
-        id: 'tw-hakluke-1678752170307383298',
-        author: { handle: 'hakluke', name: 'Luke Stephens', verified: true },
-        title: 'Sensitive backup discovery ideas for your wordlists: config.php.old, config.php.bak, config.php.tar.gz. Always fuzz for archived source trees! #bugbountytips #recon',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/hakluke/status/1678752170307383298',
-        published_at: '2023-07-11',
-        likes: 920,
-        retweets: 210,
-        tags: ['#bugbountytips', '#recon', '@hakluke']
-    },
-    {
-        id: 'tw-naglinagli-1382082473744564226',
-        author: { handle: 'naglinagli', name: 'Gal Nagli', verified: true },
-        title: 'XSS payload to keep on your notes: <script>alert(1)</script> -> nginx block, "><img src=x onerror=alert(1)> -> Wordfence block, but SVG animation vectors bypass WAF filters cleanly! #bugbountytips #websec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/naglinagli/status/1382082473744564226',
-        published_at: '2021-04-13',
-        likes: 1105,
-        retweets: 290,
-        tags: ['#bugbountytips', '#websec', '@naglinagli']
-    },
-    {
-        id: 'tw-naglinagli-1468155313182416899',
-        author: { handle: 'naglinagli', name: 'Gal Nagli', verified: true },
-        title: 'The latest Grafana unpatched 0 Day LFI is now being actively exploited, it affects Grafana 8.0+. Vulnerable companies should revoke internal secrets immediately. #0day #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/naglinagli/status/1468155313182416899',
-        published_at: '2021-12-07',
-        likes: 1450,
-        retweets: 380,
-        tags: ['#0day', '#infosec', '@naglinagli']
-    },
-    {
-        id: 'tw-naglinagli-1374332024920608774',
-        author: { handle: 'naglinagli', name: 'Gal Nagli', verified: true },
-        title: 'Ever find a phpMyAdmin login portal and default creds wont work? Try to access the /phpmyadmin/setup/ endpoint and you might be presented with authenticated setup! #recon #websec #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/naglinagli/status/1374332024920608774',
-        published_at: '2021-03-23',
-        likes: 980,
-        retweets: 240,
-        tags: ['#recon', '#websec', '#bugbountytips', '@naglinagli']
-    },
-    {
-        id: 'tw-nahamsec-1177672652011343873',
-        author: { handle: 'nahamsec', name: 'Ben Sadeghipour', verified: true },
-        title: 'What are some endpoints that make you excited when it pops up while performing a directory brute force? Here are some of mine: /api/proxy /swagger-ui /graphql /actuator #bugbountytips #recon #apihacking',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/NahamSec/status/1177672652011343873',
-        published_at: '2019-09-27',
-        likes: 890,
-        retweets: 210,
-        tags: ['#bugbountytips', '#recon', '#apihacking', '@nahamsec']
-    },
-    {
-        id: 'tw-nahamsec-1694388639994675568',
-        author: { handle: 'nahamsec', name: 'Ben Sadeghipour', verified: true },
-        title: 'Tips on API reconnaissance: publicly accessible swagger UI and open debug docs often lead to unauthorized internal endpoints and mass PII exposure. #apihacking #bugbountytips #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/nahamsec/status/1694388639994675568',
-        published_at: '2023-08-23',
-        likes: 1250,
-        retweets: 320,
-        tags: ['#apihacking', '#bugbountytips', '#infosec', '@nahamsec']
-    },
-    {
-        id: 'tw-fransrosen-1349397387920502786',
-        author: { handle: 'fransrosen', name: 'Frans Rosén', verified: true },
-        title: 'I tend to call them SSRF canaries, when chaining a blind SSRF to another SSRF internally which makes an additional call externally, or by an app-specific open redir or blind XXE. Confluence, Artifactory, Jenkins have great examples. #websec #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/fransrosen/status/1349397387920502786',
-        published_at: '2021-01-13',
-        likes: 1340,
-        retweets: 395,
-        tags: ['#websec', '#bugbountytips', '@fransrosen']
-    },
-    {
-        id: 'tw-shubs-1748133949485019467',
-        author: { handle: 'infosec_au', name: 'Shubham Shah', verified: true },
-        title: 'At @assetnote, we focused on building a comprehensive set of exploits for the recent Ivanti Pulse Connect Secure vulnerabilities (CVE-2023-46805 & CVE-2024-21887). #0day #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/infosec_au/status/1748133949485019467',
-        published_at: '2024-01-19',
-        likes: 1620,
-        retweets: 430,
-        tags: ['#0day', '#infosec', '@infosec_au']
-    },
-    {
-        id: 'tw-projectdiscovery-1625246290602000385',
-        author: { handle: 'pdiscoveryio', name: 'ProjectDiscovery', verified: true },
-        title: 'dnsx v1.1.2 is published with new features: Placeholder-based DNS brute force & ASN-based input/output support. Streamline your reconnaissance pipeline! #hackwithautomation #dns #recon #bugbounty',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/pdiscoveryio/status/1625246290602000385',
-        published_at: '2023-02-13',
-        likes: 1430,
-        retweets: 360,
-        tags: ['#recon', '#bugbounty', '#dns', '@pdiscoveryio']
-    },
-    {
-        id: 'tw-taviso-1508438583484452866',
-        author: { handle: 'taviso', name: 'Tavis Ormandy', verified: true },
-        title: 'Yikes, we now have a working reproducer for Z_DEFAULT_STRATEGY memory corruption bug in zlib. Advisory coordinated. #0day #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/taviso/status/1508438583484452866',
-        published_at: '2022-03-28',
-        likes: 2190,
-        retweets: 590,
-        tags: ['#0day', '#infosec', '@taviso']
-    },
-    {
-        id: 'tw-taviso-1062828228060966912',
-        author: { handle: 'taviso', name: 'Tavis Ormandy', verified: true },
-        title: 'Application whitelisting and applying updates promptly solves real security problems. Switching to hardened OS environments is even better. #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/taviso/status/1062828228060966912',
-        published_at: '2018-11-14',
-        likes: 1650,
-        retweets: 410,
-        tags: ['#infosec', '@taviso']
-    },
-    {
-        id: 'tw-gareth-1597603004013809664',
-        author: { handle: 'garethheyes', name: 'Gareth Heyes', verified: true },
-        title: 'It\'s possible to hijack getElementById() without scripts or events using DOM clobbering: <div id="x">try harder</div>. #websec #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/garethheyes/status/1597603004013809664',
-        published_at: '2022-11-29',
-        likes: 1180,
-        retweets: 310,
-        tags: ['#websec', '#bugbountytips', '@garethheyes']
-    },
-    {
-        id: 'tw-liveoverflow-1738520896585785394',
-        author: { handle: 'LiveOverflow', name: 'LiveOverflow', verified: true },
-        title: '"A Vulnerability to Hack The World" - CVE-2023-4863 The start of a mini series digging into the recent WebP zero-day heap overflow vulnerability. #0day #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/LiveOverflow/status/1738520896585785394',
-        published_at: '2023-12-23',
-        likes: 1870,
-        retweets: 380,
-        tags: ['#0day', '#infosec', '@LiveOverflow']
-    },
-    {
-        id: 'tw-liveoverflow-1112323055127191552',
-        author: { handle: 'LiveOverflow', name: 'LiveOverflow', verified: true },
-        title: 'I never thought I would experience a XSS on Google Search. Difficulties of sanitizing complex DOM structures and client-side parsers. #websec #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/LiveOverflow/status/1112323055127191552',
-        published_at: '2019-03-31',
-        likes: 2150,
-        retweets: 540,
-        tags: ['#websec', '#bugbountytips', '@LiveOverflow']
-    },
-    {
-        id: 'tw-spaceraccoon-1530902467306606592',
-        author: { handle: 'spaceraccoonsec', name: 'Eugene Lim', verified: true },
-        title: 'New custom URI to arbitrary command execution just dropped ms-msdt:/id PCWDiagnostic (Follina 0-day). Review diagnostic tools and URI handlers! #0day #infosec #redteam',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/spaceraccoonsec/status/1530902467306606592',
-        published_at: '2022-05-29',
-        likes: 1320,
-        retweets: 340,
-        tags: ['#0day', '#infosec', '#redteam', '@spaceraccoonsec']
-    },
-    {
-        id: 'tw-s0md3v-966175714302144514',
-        author: { handle: 's0md3v', name: 'Somdev Sangwan', verified: true },
-        title: 'Context breaking XSS payload equipped with some tricks: --><script><svg onload=(confirm)``> SVG animation tags easily bypass naive HTML tag sanitizers. #bugbountytips #websec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/s0md3v/status/966175714302144514',
-        published_at: '2018-02-21',
-        likes: 1450,
-        retweets: 390,
-        tags: ['#bugbountytips', '#websec', '@s0md3v']
-    },
-    {
-        id: 'tw-bbuerhaus-880498767551541248',
-        author: { handle: 'bbuerhaus', name: 'Ben Buerhaus', verified: true },
-        title: 'Escalating XSS in PhantomJS Image Rendering to SSRF and Local-File Read. Great demonstration of converting client-side bugs into high-severity server compromises. #websec #0day #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/bbuerhaus/status/880498767551541248',
-        published_at: '2017-06-29',
-        likes: 1980,
-        retweets: 510,
-        tags: ['#websec', '#0day', '#bugbountytips', '@bbuerhaus']
-    },
-    {
-        id: 'tw-hacker-1570582547415068672',
-        author: { handle: 'hacker_', name: 'Corben Leo', verified: true },
-        title: 'Found an internal network share containing powershell scripts with admin user credentials in Thycotic PAM. Extracted secrets for DA, DUO, AWS, GSuite! #recon #redteam #infosec',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/hacker_/status/1570582547415068672',
-        published_at: '2022-09-16',
-        likes: 1250,
-        retweets: 295,
-        tags: ['#recon', '#redteam', '#infosec', '@hacker_']
-    },
-    {
-        id: 'tw-insiderphd-1280470587199152128',
-        author: { handle: 'InsiderPhD', name: 'Katie Paxton-Fear', verified: true },
-        title: 'API endpoint fuzzing: /__swagger__/ and /_swagger_/ are two undocumented paths I have frequently seen exposed in the wild on production systems! #apihacking #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/InsiderPhD/status/1280470587199152128',
-        published_at: '2020-07-07',
-        likes: 920,
-        retweets: 230,
-        tags: ['#apihacking', '#bugbountytips', '@InsiderPhD']
-    },
-    {
-        id: 'tw-intigriti-1618589709617463297',
-        author: { handle: 'intigriti', name: 'Intigriti', verified: true },
-        title: 'Can you spot the vulnerability? Show us how you would be able to become the admin in the comments! Community 1337 challenge. #websec #bugbountytips',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/intigriti/status/1618589709617463297',
-        published_at: '2023-01-26',
-        likes: 1140,
-        retweets: 270,
-        tags: ['#websec', '#bugbountytips', '@intigriti']
-    },
-    {
-        id: 'tw-todayininfosec-1974552634775531921',
-        author: { handle: 'todayininfosec', name: 'Today in Infosec', verified: true },
-        title: '2005: The Samy worm, the first self-propagating cross-site scripting worm, was released onto the mega-popular MySpace by 19-year-old Samy Kamkar. It spread like wildfire. #infosec #0day',
-        source: 'Twitter / X',
-        category: 'tips',
-        url: 'https://x.com/todayininfosec/status/1974552634775531921',
-        published_at: '2025-10-04',
-        likes: 1540,
-        retweets: 420,
-        tags: ['#infosec', '#0day', '@todayininfosec']
-    }
-];
+// Hashtags merged into the default "all" stream (the busy ones like #infosec are mostly bots).
+const DEFAULT_STREAM_TAGS = ['bugbounty', 'bugbountytips', 'threatintel'];
 
-// Function to generate rolling recent dates relative to today
-function getRollingDate(offsetDays = 0) {
-    const d = new Date();
-    d.setDate(d.getDate() - offsetDays);
-    return d.toISOString().split('T')[0];
-}
+const BLOCKED_HOST_SUFFIXES = ['.local', '.localhost', '.internal', '.lan', '.home', '.corp', '.intranet'];
 
-// In-memory store for custom accounts and hashtags added by user
-const customAccounts = new Set();
-const customHashtags = new Set();
+// ---------------------------------------------------------------------------
+// Persistence of user-added sources
+// ---------------------------------------------------------------------------
 
-async function getTweetsFeed(options = {}) {
-    const { account = null, hashtag = null, search = null, limit = 60 } = options;
-
-    // Map database items with dynamically rolling recent dates (Today, Yesterday, etc.)
-    let all = TWEETS_DATABASE.map((item, idx) => {
-        // Distribute dates smoothly: 0-3: today, 4-7: yesterday, etc.
-        const dayOffset = Math.floor(idx / 3);
+function loadCustomSources() {
+    try {
+        const parsed = JSON.parse(fs.readFileSync(SOURCES_FILE, 'utf8'));
         return {
-            ...item,
-            published_at: getRollingDate(dayOffset)
+            accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+            hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : []
         };
-    });
-
-    // Filter by specific account handle
-    if (account) {
-        const cleanHandle = account.replace(/^@/, '').toLowerCase().trim();
-        all = all.filter(t => t.author && t.author.handle.toLowerCase() === cleanHandle);
-
-        // If custom account has no tweets yet in database, generate a direct live status entry
-        if (all.length === 0) {
-            all.push({
-                id: `tw-${cleanHandle}-live`,
-                author: { handle: cleanHandle, name: cleanHandle, verified: false },
-                title: `Tracking live posts and security intelligence from @${cleanHandle}. Click 'Open Tweet on 𝕏' to view the latest tweets directly on Twitter/X. #infosec #bugbountytips`,
-                source: 'Twitter / X',
-                category: 'tips',
-                url: `https://x.com/search?q=from%3A${cleanHandle}&f=live`,
-                published_at: new Date().toISOString().split('T')[0],
-                likes: 100,
-                retweets: 25,
-                tags: ['#infosec', '#bugbountytips', '@' + cleanHandle]
-            });
-        }
+    } catch (e) {
+        return { accounts: [], hashtags: [] };
     }
-
-    // Filter by specific hashtag
-    if (hashtag) {
-        const cleanTag = (hashtag.startsWith('#') ? hashtag : '#' + hashtag).toLowerCase().trim();
-        all = all.filter(t =>
-            (t.tags && t.tags.some(tg => tg.toLowerCase() === cleanTag)) ||
-            (t.title && t.title.toLowerCase().includes(cleanTag))
-        );
-
-        // If custom hashtag has no items in database, provide a direct live search entry
-        if (all.length === 0) {
-            all.push({
-                id: `tw-tag-${cleanTag.replace('#', '')}`,
-                author: { handle: 'TwitterLive', name: '𝕏 Live Tracker', verified: true },
-                title: `Live feed for ${cleanTag}. Click 'Open Tweet on 𝕏' to stream latest discussions and live posts under this hashtag. ${cleanTag} #infosec`,
-                source: 'Twitter / X',
-                category: 'tips',
-                url: `https://x.com/search?q=${encodeURIComponent(cleanTag)}&f=live`,
-                published_at: new Date().toISOString().split('T')[0],
-                likes: 75,
-                retweets: 18,
-                tags: [cleanTag, '#infosec']
-            });
-        }
-    }
-
-    // Filter by general search keyword
-    if (search && search.trim()) {
-        const q = search.toLowerCase().trim();
-        all = all.filter(t =>
-            (t.title && t.title.toLowerCase().includes(q)) ||
-            (t.author && t.author.handle.toLowerCase().includes(q)) ||
-            (t.author && t.author.name.toLowerCase().includes(q)) ||
-            (t.tags && t.tags.some(tg => tg.toLowerCase().includes(q)))
-        );
-    }
-
-    return all.slice(0, limit);
 }
+
+const custom = loadCustomSources();
+
+function saveCustomSources() {
+    atomicWriteJson(SOURCES_FILE, custom);
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '…', mdash: '—', ndash: '–' };
+
+function decodeEntities(text) {
+    return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code) => {
+        if (code[0] === '#') {
+            const num = code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+            return Number.isFinite(num) ? String.fromCodePoint(num) : match;
+        }
+        return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+    });
+}
+
+/** Convert Mastodon's status HTML to plain text with line breaks preserved. */
+function htmlToText(html) {
+    if (!html) return '';
+    const text = String(html)
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+        .replace(/<[^>]+>/g, '');
+    return decodeEntities(text).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Mastodon display names can contain custom emoji shortcodes like ":verified:"; drop them. */
+function cleanDisplayName(name) {
+    return String(name || '').replace(/:[A-Za-z0-9_]+:/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function extractHashtags(text) {
+    const tags = new Set();
+    for (const match of String(text || '').matchAll(/(?:^|\s)#([A-Za-z0-9_]{2,50})/g)) {
+        tags.add('#' + match[1]);
+    }
+    return [...tags];
+}
+
+async function fetchJson(url) {
+    const res = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
+    if (!res.ok) {
+        const err = new Error(`HTTP ${res.status} from ${new URL(url).host}`);
+        err.status = res.status;
+        throw err;
+    }
+    return res.json();
+}
+
+function isSafeHost(host) {
+    const h = String(host || '').toLowerCase();
+    return /^([a-z0-9-]+\.)+[a-z]{2,}$/.test(h) && !BLOCKED_HOST_SUFFIXES.some(s => h.endsWith(s));
+}
+
+/**
+ * Parse what a user typed into a source descriptor.
+ * Accepts: user@server (Mastodon), @user@server, https://server/@user,
+ *          name.bsky.social or a custom-domain Bluesky handle, https://bsky.app/profile/handle
+ * @returns {{ platform: 'mastodon'|'bluesky', handle: string } | { error: string }}
+ */
+function parseAccountInput(input) {
+    let value = String(input || '').trim();
+    if (!value) return { error: 'Enter an account.' };
+
+    const bskyUrl = value.match(/^https?:\/\/bsky\.app\/profile\/([^/?#]+)/i);
+    if (bskyUrl) value = bskyUrl[1];
+
+    const mastoUrl = value.match(/^https?:\/\/([^/]+)\/@([A-Za-z0-9_.]+)\/?$/i);
+    if (mastoUrl) value = `${mastoUrl[2]}@${mastoUrl[1]}`;
+
+    value = value.replace(/^@/, '');
+
+    const masto = value.match(/^([A-Za-z0-9_.]{1,30})@([A-Za-z0-9.-]+)$/);
+    if (masto) {
+        if (!isSafeHost(masto[2])) return { error: `"${masto[2]}" is not a public server name.` };
+        return { platform: 'mastodon', handle: `${masto[1]}@${masto[2].toLowerCase()}` };
+    }
+
+    if (/^([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/.test(value)) {
+        if (!isSafeHost(value)) return { error: `"${value}" is not a public handle.` };
+        return { platform: 'bluesky', handle: value.toLowerCase() };
+    }
+
+    return {
+        error: 'Use a Mastodon address like user@infosec.exchange or a Bluesky handle like name.bsky.social. X accounts cannot be read without a paid X API key.'
+    };
+}
+
+function normalizeTag(input) {
+    const match = String(input || '').trim().match(/^#?([A-Za-z0-9_]{1,50})$/);
+    return match ? '#' + match[1].toLowerCase() : null;
+}
+
+// ---------------------------------------------------------------------------
+// Mastodon
+// ---------------------------------------------------------------------------
+
+const mastodonIds = new Map(); // "user@host" -> account id
+const profileCache = new Map(); // "platform:handle" -> { at, profile }
+
+function normalizeMastodonStatus(status, host) {
+    const account = status.account || {};
+    const acct = account.acct && account.acct.includes('@') ? account.acct : `${account.acct || account.username}@${host}`;
+    const text = htmlToText(status.content);
+    const title = status.spoiler_text ? `[CW: ${status.spoiler_text}]\n${text}` : text;
+    return {
+        id: `masto-${host}-${status.id}`,
+        platform: 'mastodon',
+        source: 'Mastodon',
+        category: 'tips',
+        title,
+        url: status.url || status.uri,
+        published_at: status.created_at,
+        author: {
+            handle: acct,
+            name: cleanDisplayName(account.display_name) || account.username || acct,
+            avatar: account.avatar_static || account.avatar || null,
+            profile_url: account.url || null,
+            platform: 'mastodon'
+        },
+        likes: status.favourites_count ?? null,
+        reposts: status.reblogs_count ?? null,
+        replies: status.replies_count ?? null,
+        tags: (status.tags || []).map(t => '#' + t.name).slice(0, 6),
+        language: status.language || null
+    };
+}
+
+async function lookupMastodonAccount(handle) {
+    const [user, host] = handle.split('@');
+    const account = await fetchJson(`https://${host}/api/v1/accounts/lookup?acct=${encodeURIComponent(user)}`);
+    mastodonIds.set(handle, account.id);
+    return account;
+}
+
+async function fetchMastodonAccount(handle, limit = 20) {
+    const host = handle.split('@')[1];
+    let id = mastodonIds.get(handle);
+    if (!id) id = (await lookupMastodonAccount(handle)).id;
+    const statuses = await fetchJson(
+        `https://${host}/api/v1/accounts/${encodeURIComponent(id)}/statuses?limit=${limit}&exclude_replies=true&exclude_reblogs=true`
+    );
+    return statuses.filter(s => s.visibility === 'public').map(s => normalizeMastodonStatus(s, host));
+}
+
+async function fetchMastodonTag(tag, limit = 30) {
+    const name = tag.replace(/^#/, '');
+    const statuses = await fetchJson(`https://${TAG_INSTANCE}/api/v1/timelines/tag/${encodeURIComponent(name)}?limit=${limit}`);
+    return statuses.filter(s => s.visibility === 'public').map(s => normalizeMastodonStatus(s, TAG_INSTANCE));
+}
+
+// ---------------------------------------------------------------------------
+// Bluesky
+// ---------------------------------------------------------------------------
+
+const BSKY_API = 'https://public.api.bsky.app/xrpc';
+
+function normalizeBlueskyPost(post) {
+    const record = post.record || {};
+    const author = post.author || {};
+    const rkey = String(post.uri || '').split('/').pop();
+    const facetTags = (record.facets || [])
+        .flatMap(f => f.features || [])
+        .filter(f => f.$type === 'app.bsky.richtext.facet#tag' && f.tag)
+        .map(f => '#' + f.tag);
+    return {
+        id: `bsky-${author.did || author.handle}-${rkey}`,
+        platform: 'bluesky',
+        source: 'Bluesky',
+        category: 'tips',
+        title: record.text || '',
+        url: `https://bsky.app/profile/${author.handle}/post/${rkey}`,
+        published_at: record.createdAt || post.indexedAt,
+        author: {
+            handle: author.handle,
+            name: author.displayName || author.handle,
+            avatar: author.avatar || null,
+            profile_url: `https://bsky.app/profile/${author.handle}`,
+            platform: 'bluesky'
+        },
+        likes: post.likeCount ?? null,
+        reposts: post.repostCount ?? null,
+        replies: post.replyCount ?? null,
+        tags: [...new Set([...facetTags, ...extractHashtags(record.text)])].slice(0, 6),
+        language: Array.isArray(record.langs) ? record.langs[0] : null
+    };
+}
+
+async function fetchBlueskyAccount(handle, limit = 20) {
+    const json = await fetchJson(
+        `${BSKY_API}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=${limit}&filter=posts_no_replies`
+    );
+    return (json.feed || [])
+        .filter(entry => !entry.reason) // skip reposts of other people's posts
+        .map(entry => normalizeBlueskyPost(entry.post));
+}
+
+// ---------------------------------------------------------------------------
+// Profiles (for the account picker)
+// ---------------------------------------------------------------------------
+
+async function fetchProfile(account) {
+    const key = `${account.platform}:${account.handle}`;
+    const cached = profileCache.get(key);
+    if (cached && Date.now() - cached.at < PROFILE_TTL_MS) return cached.profile;
+
+    let profile;
+    if (account.platform === 'mastodon') {
+        const a = await lookupMastodonAccount(account.handle);
+        profile = {
+            name: cleanDisplayName(a.display_name) || a.username,
+            bio: htmlToText(a.note).slice(0, 140),
+            avatar: a.avatar_static || a.avatar || null,
+            profile_url: a.url,
+            last_post_at: a.last_status_at || null
+        };
+    } else {
+        const p = await fetchJson(`${BSKY_API}/app.bsky.actor.getProfile?actor=${encodeURIComponent(account.handle)}`);
+        profile = {
+            name: p.displayName || p.handle,
+            bio: (p.description || '').slice(0, 140),
+            avatar: p.avatar || null,
+            profile_url: `https://bsky.app/profile/${p.handle}`,
+            last_post_at: null
+        };
+    }
+    profileCache.set(key, { at: Date.now(), profile });
+    return profile;
+}
+
+// ---------------------------------------------------------------------------
+// X archive
+// ---------------------------------------------------------------------------
+
+function getArchiveItems() {
+    return X_ARCHIVE.map(t => ({
+        id: t.id,
+        platform: 'x',
+        source: 'X archive',
+        category: 'tips',
+        archived: true,
+        title: t.title,
+        url: t.url,
+        published_at: t.published_at,
+        author: {
+            handle: t.handle,
+            name: t.name,
+            avatar: null,
+            profile_url: `https://x.com/${t.handle}`,
+            platform: 'x'
+        },
+        likes: null,
+        reposts: null,
+        replies: null,
+        tags: (t.tags || []).filter(tag => tag.startsWith('#'))
+    }));
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 function getTrackedAccounts() {
-    const customList = Array.from(customAccounts).map(handle => ({
-        handle,
-        name: handle,
-        bio: 'Custom tracked researcher account',
-        verified: false,
-        custom: true
-    }));
-    return [...DEFAULT_ACCOUNTS, ...customList];
+    return [
+        ...DEFAULT_ACCOUNTS.map(a => ({ ...a, custom: false })),
+        ...custom.accounts.map(a => ({ ...a, name: a.name || a.handle, custom: true }))
+    ];
+}
+
+/** Tracked accounts enriched with live profile data (avatar, bio). Failures keep the basic entry. */
+async function getTrackedAccountsWithProfiles() {
+    const accounts = getTrackedAccounts();
+    const results = await Promise.allSettled(accounts.map(fetchProfile));
+    return accounts.map((account, i) => {
+        const profile = results[i].status === 'fulfilled' ? results[i].value : {};
+        return { ...account, ...profile, name: profile.name || account.name, reachable: results[i].status === 'fulfilled' };
+    });
 }
 
 function getTrackedHashtags() {
-    const list = [...DEFAULT_HASHTAGS, ...Array.from(customHashtags)];
-    return Array.from(new Set(list));
+    return [...new Set([...DEFAULT_HASHTAGS, ...custom.hashtags])];
 }
 
-function addCustomAccount(handle) {
-    if (!handle) return false;
-    const clean = handle.replace(/^@/, '').trim();
-    if (clean) {
-        customAccounts.add(clean);
-        return true;
-    }
-    return false;
+function fetchAccount(account, limit) {
+    return account.platform === 'mastodon'
+        ? fetchMastodonAccount(account.handle, limit)
+        : fetchBlueskyAccount(account.handle, limit);
 }
 
-function addCustomHashtag(tag) {
-    if (!tag) return false;
-    let clean = tag.trim();
-    if (!clean.startsWith('#')) clean = '#' + clean;
-    if (clean.length > 1) {
-        customHashtags.add(clean);
-        return true;
+function dedupeAndSort(items) {
+    const seen = new Set();
+    const unique = [];
+    for (const item of items) {
+        if (!item || !item.url || seen.has(item.url)) continue;
+        seen.add(item.url);
+        unique.push(item);
     }
-    return false;
+    return unique.sort((a, b) => (Date.parse(b.published_at) || 0) - (Date.parse(a.published_at) || 0));
+}
+
+function matchesSearch(item, q) {
+    return (item.title && item.title.toLowerCase().includes(q)) ||
+        (item.author && item.author.handle && item.author.handle.toLowerCase().includes(q)) ||
+        (item.author && item.author.name && item.author.name.toLowerCase().includes(q)) ||
+        (item.tags && item.tags.some(tag => tag.toLowerCase().includes(q)));
+}
+
+/**
+ * Fetch community posts.
+ * @param {{ account?: string, hashtag?: string, search?: string, limit?: number, includeArchive?: boolean, liveOnly?: boolean }} options
+ * @returns {Promise<{ items: Array, errors: Array<{ source: string, error: string }> }>}
+ */
+async function getCommunityFeed(options = {}) {
+    const { account = null, hashtag = null, search = null, limit = 60, includeArchive = true, liveOnly = false } = options;
+    const errors = [];
+    const tasks = [];
+
+    if (account) {
+        const parsed = parseAccountInput(account);
+        if (parsed.error) {
+            const handle = String(account).replace(/^@/, '').toLowerCase();
+            const archived = getArchiveItems().filter(t => t.author.handle.toLowerCase() === handle);
+            return { items: archived.slice(0, limit), errors: archived.length ? [] : [{ source: account, error: parsed.error }] };
+        }
+        tasks.push({ label: parsed.handle, run: () => fetchAccount(parsed, 30) });
+    } else if (hashtag) {
+        const tag = normalizeTag(hashtag);
+        if (!tag) return { items: [], errors: [{ source: hashtag, error: 'Hashtags may only contain letters, digits and _.' }] };
+        tasks.push({ label: tag, run: () => fetchMastodonTag(tag, 40) });
+    } else {
+        for (const acc of getTrackedAccounts()) {
+            tasks.push({ label: acc.handle, run: () => fetchAccount(acc, 20) });
+        }
+        for (const tag of DEFAULT_STREAM_TAGS) {
+            tasks.push({ label: '#' + tag, run: () => fetchMastodonTag(tag, 10) });
+        }
+    }
+
+    const settled = await Promise.allSettled(tasks.map(t => t.run()));
+    let items = [];
+    settled.forEach((result, i) => {
+        if (result.status === 'fulfilled') items.push(...result.value);
+        else errors.push({ source: tasks[i].label, error: result.reason && result.reason.message ? result.reason.message : String(result.reason) });
+    });
+
+    if (hashtag && includeArchive && !liveOnly) {
+        const tag = normalizeTag(hashtag);
+        items.push(...getArchiveItems().filter(t => t.tags.some(x => x.toLowerCase() === tag)));
+    } else if (!account && !hashtag && includeArchive && !liveOnly) {
+        items.push(...getArchiveItems());
+    }
+
+    items = dedupeAndSort(items);
+
+    const q = String(search || '').trim().toLowerCase();
+    if (q) items = items.filter(item => matchesSearch(item, q));
+
+    if (errors.length) {
+        console.warn(`[Community] ${errors.length} source(s) failed: ${errors.map(e => `${e.source} (${e.error})`).join(', ')}`);
+    }
+
+    return { items: items.slice(0, limit), errors };
+}
+
+/** Backwards-compatible: returns only the item array. */
+async function getTweetsFeed(options = {}) {
+    const { items } = await getCommunityFeed(options);
+    return items;
+}
+
+/**
+ * Add an account after checking it exists on its platform.
+ * @returns {Promise<{ ok: boolean, account?: object, error?: string }>}
+ */
+async function addCustomAccount(input) {
+    const parsed = parseAccountInput(input);
+    if (parsed.error) return { ok: false, error: parsed.error };
+
+    const exists = getTrackedAccounts().some(a => a.platform === parsed.platform && a.handle.toLowerCase() === parsed.handle.toLowerCase());
+    if (exists) return { ok: true, account: parsed, alreadyTracked: true };
+
+    try {
+        const profile = await fetchProfile(parsed);
+        const entry = { platform: parsed.platform, handle: parsed.handle, name: profile.name };
+        custom.accounts.push(entry);
+        saveCustomSources();
+        return { ok: true, account: { ...entry, ...profile, custom: true } };
+    } catch (err) {
+        const notFound = err.status === 404 || err.status === 400;
+        return { ok: false, error: notFound ? `Account ${parsed.handle} was not found.` : `Could not reach ${parsed.platform === 'mastodon' ? parsed.handle.split('@')[1] : 'Bluesky'}: ${err.message}` };
+    }
+}
+
+function removeCustomAccount(handle) {
+    const before = custom.accounts.length;
+    custom.accounts = custom.accounts.filter(a => a.handle.toLowerCase() !== String(handle || '').toLowerCase());
+    if (custom.accounts.length === before) return false;
+    saveCustomSources();
+    return true;
+}
+
+function addCustomHashtag(input) {
+    const tag = normalizeTag(input);
+    if (!tag) return { ok: false, error: 'Hashtags may only contain letters, digits and _.' };
+    if (!getTrackedHashtags().includes(tag)) {
+        custom.hashtags.push(tag);
+        saveCustomSources();
+    }
+    return { ok: true, tag };
+}
+
+function removeCustomHashtag(input) {
+    const tag = normalizeTag(input);
+    const before = custom.hashtags.length;
+    custom.hashtags = custom.hashtags.filter(t => t !== tag);
+    if (custom.hashtags.length === before) return false;
+    saveCustomSources();
+    return true;
 }
 
 module.exports = {
     getTweetsFeed,
+    getCommunityFeed,
+    getArchiveItems,
     getTrackedAccounts,
+    getTrackedAccountsWithProfiles,
     getTrackedHashtags,
     addCustomAccount,
-    addCustomHashtag
+    removeCustomAccount,
+    addCustomHashtag,
+    removeCustomHashtag,
+    parseAccountInput,
+    htmlToText
 };

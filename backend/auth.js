@@ -8,13 +8,52 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { DATA_DIR, atomicWriteJson } = require('./paths');
 
-const DATA_DIR = path.join(__dirname, 'data');
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
-
-// Server secret for signing HMAC session tokens (generated or loaded from env)
-const SERVER_SECRET = process.env.JWT_SECRET || process.env.AUTH_SECRET || 'bugfeed_cyber_sec_token_sig_2026_@key';
+const SECRET_FILE = path.join(DATA_DIR, 'secret.key');
+const MIN_SECRET_LENGTH = 32;
 const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/**
+ * Load the HMAC signing secret.
+ * Order: AUTH_SECRET / JWT_SECRET env var, then backend/data/secret.key,
+ * otherwise generate a random 64-byte secret and persist it so sessions survive restarts.
+ * There is deliberately no hard-coded fallback: a public default would let anyone forge tokens.
+ */
+function loadServerSecret() {
+    const fromEnv = (process.env.AUTH_SECRET || process.env.JWT_SECRET || '').trim();
+    if (fromEnv) {
+        if (fromEnv.length < MIN_SECRET_LENGTH) {
+            console.warn(`[Auth] Warning: AUTH_SECRET is shorter than ${MIN_SECRET_LENGTH} characters. Use a longer random value.`);
+        }
+        return fromEnv;
+    }
+
+    try {
+        const stored = fs.readFileSync(SECRET_FILE, 'utf8').trim();
+        if (stored.length >= MIN_SECRET_LENGTH) return stored;
+    } catch (e) {
+        // No stored secret yet.
+    }
+
+    const generated = crypto.randomBytes(64).toString('hex');
+    fs.writeFileSync(SECRET_FILE, generated, { encoding: 'utf8', mode: 0o600 });
+    console.log(`[Auth] Generated a new random signing secret in ${SECRET_FILE}`);
+    return generated;
+}
+
+const SERVER_SECRET = loadServerSecret();
+
+function sign(data) {
+    return crypto.createHmac('sha256', SERVER_SECRET).update(data).digest('base64url');
+}
+
+function safeEqual(a, b) {
+    const bufA = Buffer.from(String(a));
+    const bufB = Buffer.from(String(b));
+    return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
 
 class AuthManager {
     constructor() {
@@ -23,10 +62,6 @@ class AuthManager {
     }
 
     loadUsers() {
-        if (!fs.existsSync(DATA_DIR)) {
-            fs.mkdirSync(DATA_DIR, { recursive: true });
-        }
-
         if (fs.existsSync(AUTH_FILE)) {
             try {
                 const raw = fs.readFileSync(AUTH_FILE, 'utf8');
@@ -42,10 +77,7 @@ class AuthManager {
     }
 
     saveUsers() {
-        const tmpPath = `${AUTH_FILE}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
-        const content = JSON.stringify({ users: this.users }, null, 2);
-        fs.writeFileSync(tmpPath, content, 'utf8');
-        fs.renameSync(tmpPath, AUTH_FILE);
+        atomicWriteJson(AUTH_FILE, { users: this.users }, { mode: 0o600 });
     }
 
     /**
@@ -115,11 +147,13 @@ class AuthManager {
 
         const user = this.users.find(u => u.username.toLowerCase() === cleanUser.toLowerCase());
         if (!user) {
+            // Spend the same hashing time as a real check so response timing doesn't reveal valid usernames.
+            this.hashPassword(cleanPass, 'bugfeed-dummy-salt');
             throw new Error('Invalid username or password');
         }
 
         const testHash = this.hashPassword(cleanPass, user.salt);
-        if (!crypto.timingSafeEqual(Buffer.from(testHash, 'hex'), Buffer.from(user.hash, 'hex'))) {
+        if (!safeEqual(testHash, user.hash)) {
             throw new Error('Invalid username or password');
         }
 
@@ -148,12 +182,7 @@ class AuthManager {
             exp: now + TOKEN_EXPIRY_MS
         })).toString('base64url');
 
-        const signature = crypto
-            .createHmac('sha256', SERVER_SECRET)
-            .update(`${header}.${payload}`)
-            .digest('base64url');
-
-        return `${header}.${payload}.${signature}`;
+        return `${header}.${payload}.${sign(`${header}.${payload}`)}`;
     }
 
     /**
@@ -167,19 +196,14 @@ class AuthManager {
 
         const [header, payload, signature] = parts;
 
-        const expectedSig = crypto
-            .createHmac('sha256', SERVER_SECRET)
-            .update(`${header}.${payload}`)
-            .digest('base64url');
-
-        if (signature !== expectedSig) {
+        if (!safeEqual(signature, sign(`${header}.${payload}`))) {
             return null; // Invalid signature
         }
 
         try {
             const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-            if (decoded.exp && Date.now() > decoded.exp) {
-                return null; // Expired
+            if (typeof decoded.exp !== 'number' || Date.now() > decoded.exp) {
+                return null; // Missing or past expiry
             }
             return decoded;
         } catch (e) {

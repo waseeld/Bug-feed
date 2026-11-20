@@ -16,11 +16,14 @@
           </p>
 
           <div class="d-flex align-items-center gap-3 flex-wrap">
-            <button class="btn-cyber-primary" @click="$emit('switch-tab', 'disclosures')">
+            <button type="button" class="btn-cyber-primary" @click="$emit('switch-tab', 'disclosures')">
               Explore Disclosures &rarr;
             </button>
-            <button class="btn-cyber-outline" @click="$emit('switch-tab', 'cve')">
+            <button type="button" class="btn-cyber-outline" @click="$emit('switch-tab', 'cve')">
               Latest CVEs &amp; PoCs
+            </button>
+            <button type="button" class="btn-cyber-outline" @click="$emit('switch-tab', 'blog')">
+              Read the Blog
             </button>
           </div>
         </div>
@@ -42,11 +45,11 @@
     </div>
 
     <!-- Automated Ingestion & Deduplication Status Bar -->
-    <div class="stat-box p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3" style="background: linear-gradient(90deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%); border-left: 4px solid var(--accent-cyan);">
+    <div class="stat-box ingest-bar p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
       <div class="d-flex align-items-center gap-3 flex-wrap">
         <div class="d-flex align-items-center gap-2">
           <span class="spinner-grow spinner-grow-sm text-info" role="status" style="width: 10px; height: 10px;"></span>
-          <span class="fw-bold text-light" style="font-size: 0.9rem; font-family: var(--font-mono);">
+          <span class="fw-bold text-emphasis" style="font-size: 0.9rem; font-family: var(--font-mono);">
             AUTO-INGESTION ENGINE:
           </span>
           <span class="cyber-badge badge-cve">EVERY {{ workerStatus.interval_minutes || 15 }} MIN</span>
@@ -54,7 +57,7 @@
 
         <div class="text-secondary small d-flex align-items-center gap-3 flex-wrap" style="font-family: var(--font-mono);">
           <span v-if="workerStatus.last_run_end">
-            Last Synced: <strong class="text-light">{{ formatTimeAgo(workerStatus.last_run_end) }}</strong>
+            Last Synced: <strong class="text-emphasis">{{ formatTimeAgo(workerStatus.last_run_end) }}</strong>
           </span>
           <span v-if="workerStatus.storage_stats">
             Database: <strong class="text-info">{{ workerStatus.storage_stats.total_items }} items</strong>
@@ -81,10 +84,29 @@
         </button>
       </div>
     </div>
+    <div v-if="latestBrief" class="stat-box p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="flex-grow-1">
+          <div class="text-muted text-uppercase" style="font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.6px;">
+            Latest brief · <span dir="ltr">{{ latestBrief.date }}<template v-if="latestBrief.time"> {{ latestBrief.time }}</template> Asia/Riyadh</span>
+          </div>
+          <h2 dir="rtl" lang="ar" class="h5 mt-2 mb-1" style="line-height: 1.7; font-family: 'IBM Plex Sans Arabic', 'Noto Naskh Arabic', var(--font-sans);">
+            {{ latestBrief.title }}
+          </h2>
+          <p v-if="latestBrief.excerpt" dir="rtl" lang="ar" class="text-secondary mb-0" style="font-family: 'IBM Plex Sans Arabic', 'Noto Naskh Arabic', var(--font-sans);">
+            {{ latestBrief.excerpt }}
+          </p>
+        </div>
+        <button type="button" class="btn-cyber-primary" @click="$emit('open-post', latestBrief.slug)">
+          Open brief
+        </button>
+      </div>
+    </div>
+
     <div class="row g-3 mb-4">
       <!-- Disclosures -->
       <div class="col-6 col-lg-3">
-        <div class="stat-box cursor-pointer" @click="$emit('switch-tab', 'disclosures')">
+        <button type="button" class="stat-box stat-box-btn" @click="$emit('switch-tab', 'disclosures')">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="text-muted text-uppercase fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
               <svg width="13" height="13" fill="#fb7185" viewBox="0 0 16 16">
@@ -100,12 +122,12 @@
           <div class="text-muted mt-2" style="font-size: 0.78rem;">
             Disclosed reports &amp; writeups
           </div>
-        </div>
+        </button>
       </div>
 
       <!-- CVEs & PoCs -->
       <div class="col-6 col-lg-3">
-        <div class="stat-box cursor-pointer" @click="$emit('switch-tab', 'cve')">
+        <button type="button" class="stat-box stat-box-btn" @click="$emit('switch-tab', 'cve')">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="text-muted text-uppercase fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
               <svg width="13" height="13" fill="#fbbf24" viewBox="0 0 16 16">
@@ -121,12 +143,12 @@
           <div class="text-muted mt-2" style="font-size: 0.78rem;">
             Fresh exploits &amp; advisories
           </div>
-        </div>
+        </button>
       </div>
 
       <!-- Security News -->
       <div class="col-6 col-lg-3">
-        <div class="stat-box cursor-pointer" @click="$emit('switch-tab', 'news')">
+        <button type="button" class="stat-box stat-box-btn" @click="$emit('switch-tab', 'news')">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="text-muted text-uppercase fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
               <svg width="13" height="13" fill="#38bdf8" viewBox="0 0 16 16">
@@ -142,12 +164,12 @@
           <div class="text-muted mt-2" style="font-size: 0.78rem;">
             Breaking threat intelligence
           </div>
-        </div>
+        </button>
       </div>
 
       <!-- Bookmarks -->
       <div class="col-6 col-lg-3">
-        <div class="stat-box cursor-pointer" @click="$emit('switch-tab', 'saved')">
+        <button type="button" class="stat-box stat-box-btn" @click="$emit('switch-tab', 'saved')">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="text-muted text-uppercase fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
               <svg width="13" height="13" fill="#34d399" viewBox="0 0 16 16">
@@ -163,7 +185,7 @@
           <div class="text-muted mt-2" style="font-size: 0.78rem;">
             Saved items in storage
           </div>
-        </div>
+        </button>
       </div>
     </div>
 
@@ -221,13 +243,14 @@ export default {
       default: 0
     }
   },
-  emits: ['switch-tab'],
+  emits: ['switch-tab', 'open-post'],
   data() {
     return {
       currentTime: '',
       currentDate: '',
       timer: null,
       statusTimer: null,
+      latestBrief: null,
       syncing: false,
       workerStatus: {
         worker_active: true,
@@ -249,6 +272,7 @@ export default {
     this.updateClock();
     this.timer = setInterval(this.updateClock, 1000);
     this.fetchMetrics();
+    this.fetchLatestBrief();
     this.fetchWorkerStatus();
     this.statusTimer = setInterval(this.fetchWorkerStatus, 15000);
   },
@@ -265,6 +289,17 @@ export default {
       if (diffMin < 60) return `${diffMin}m ago`;
       const diffHrs = Math.floor(diffMin / 60);
       return `${diffHrs}h ago`;
+    },
+    async fetchLatestBrief() {
+      try {
+        const res = await fetch('/api/blog');
+        const json = await res.json();
+        if (res.ok && Array.isArray(json.data) && json.data.length) {
+          this.latestBrief = json.data[0];
+        }
+      } catch (err) {
+        console.error('[Welcome] Failed to load latest brief:', err);
+      }
     },
     async fetchWorkerStatus() {
       try {

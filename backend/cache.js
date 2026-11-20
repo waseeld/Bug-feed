@@ -28,6 +28,10 @@ class Cache {
         return this.get(key) !== null;
     }
 
+    delete(key) {
+        this.cache.delete(key);
+    }
+
     clear() {
         this.cache.clear();
     }
