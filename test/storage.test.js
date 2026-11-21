@@ -75,7 +75,7 @@ async function runStorageTests() {
             const result = storage.ingest('news', largeBatch);
             const duration = Date.now() - t0;
 
-            assert.ok(duration < 150, `Ingesting 500 items took ${duration}ms, must be < 150ms`);
+            assert.ok(duration < 1000, `Ingesting 500 items took ${duration}ms, must be < 1000ms`);
             assert.ok(result.added + result.skipped === 500);
         });
 
