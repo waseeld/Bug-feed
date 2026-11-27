@@ -114,3 +114,4 @@ async function getNewsFeed(limit = 40) {
 }
 
 module.exports = getNewsFeed;
+module.exports.parseRssXml = parseRssXml;

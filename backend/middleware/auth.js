@@ -1,40 +1,30 @@
 /**
  * Security & Authentication Guard Middleware.
- * Protects all /api/* routes except public authentication setup/status endpoints.
+ * Mounted after the public /auth/status, /auth/setup and /auth/login routes,
+ * so every request that reaches it needs a valid token.
  */
 
 const auth = require('../auth');
 
+/**
+ * Read the session token from the Authorization header (or X-Auth-Token).
+ * Tokens in the query string are not accepted: URLs end up in logs, history and Referer headers.
+ */
+function extractToken(req) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7).trim();
+    }
+    const alt = req.headers['x-auth-token'];
+    return typeof alt === 'string' && alt ? alt.trim() : null;
+}
+
 function authMiddleware(req, res, next) {
-    // Allow CORS preflight
     if (req.method === 'OPTIONS') {
         return next();
     }
 
-    // Whitelist public endpoints
-    const publicPaths = [
-        '/auth/status',
-        '/auth/setup',
-        '/auth/login'
-    ];
-
-    // Normalize path (handle both router relative paths and full URLs)
-    const reqPath = req.path || req.url;
-    if (publicPaths.some(p => reqPath.endsWith(p) || reqPath.includes(p))) {
-        return next();
-    }
-
-    // Extract Bearer token
-    let token = null;
-    const authHeader = req.headers.authorization || req.headers.Authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.substring(7).trim();
-    } else if (req.headers['x-auth-token']) {
-        token = req.headers['x-auth-token'];
-    } else if (req.query && req.query.token) {
-        token = req.query.token;
-    }
-
+    const token = extractToken(req);
     if (!token) {
         return res.status(401).json({
             status: 401,
@@ -57,3 +47,4 @@ function authMiddleware(req, res, next) {
 }
 
 module.exports = authMiddleware;
+module.exports.extractToken = extractToken;

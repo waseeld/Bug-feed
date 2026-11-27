@@ -15,4 +15,5 @@ backend/data/*.tmp
 
 # Runtime database and authentication data (kept local only)
 backend/data/*.json
+backend/data/secret.key
 !backend/data/.gitkeep

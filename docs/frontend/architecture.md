@@ -30,6 +30,8 @@ frontend/
 │   │       ├── TweetsFeed.vue        # Twitter/X bug bounty tips & filter controls
 │   │       ├── HackeroneFeed.vue     # Disclosures & writeups directory
 │   │       ├── NewsFeed.vue          # Infosec news feed
+│   │       ├── BlogList.vue          # CyprWana brief index
+│   │       ├── BlogPost.vue          # One right-to-left brief
 │   │       └── SavedFeed.vue         # Local offline bookmarks
 │   └── assets/                       # Global css, vendor scripts, and icons
 ├── public/                           # Static HTML shell & favicons
